@@ -47,6 +47,25 @@ export function useWebRTC({ localStream, onRemoteStream, sessionId, roomId, enab
     }
 
     // Remote stream'i al
+    const maybeStartStt = (stream: MediaStream) => {
+      if (!enableStt || !sessionId) {
+        return;
+      }
+
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        console.warn("⚠️ [STT] Remote stream audio track yok, STT baslatilmadi");
+        return;
+      }
+
+      if (sttClientRef.current) {
+        return;
+      }
+
+      const audioStream = new MediaStream(audioTracks);
+      sttClientRef.current = startCandidateStt(audioStream, sessionId);
+    };
+
     pc.ontrack = (event) => {
       console.log("🎥 Remote stream alındı!", event);
       console.log("Streams:", event.streams);
@@ -72,23 +91,15 @@ export function useWebRTC({ localStream, onRemoteStream, sessionId, roomId, enab
         onRemoteStream(stream);
       }
 
-      // STT: Audio track geldiğinde aday sesini backend'e gönder
-      if (event.track.kind === "audio" && enableStt && sessionId) {
-        console.log("🎤 [STT] Audio track alındı, STT başlatılıyor...");
-        
-        // Önceki STT client varsa durdur
-        if (sttClientRef.current) {
-          sttClientRef.current.stop();
-        }
-        
-        // Yeni STT client başlat
-        sttClientRef.current = startCandidateStt(stream, sessionId);
+      // STT: Remote stream'de audio track varsa STT başlat
+      if (event.track.kind === "audio") {
+        console.log("🎤 [STT] Audio track alındı, STT kontrol ediliyor...");
       }
+      maybeStartStt(stream);
       
       // Track state değişikliklerini dinle
       event.track.onended = () => {
         console.log("⚠️ Remote track sonlandı:", event.track.kind);
-        // Audio track sonlandığında STT'yi durdur
         if (event.track.kind === "audio" && sttClientRef.current) {
           sttClientRef.current.stop();
           sttClientRef.current = null;
@@ -164,7 +175,7 @@ export function useWebRTC({ localStream, onRemoteStream, sessionId, roomId, enab
     };
 
     return pc;
-  }, [localStream, onRemoteStream]);
+  }, [localStream, onRemoteStream, enableStt, sessionId]);
 
   // Offer oluştur ve gönder
   const createOffer = useCallback(async () => {
