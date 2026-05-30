@@ -8,19 +8,19 @@ import { SignalingClient, SignalingMessage } from "./signalingClient";
 import { createInterviewPeerConnection, parseIceCandidateType, isTurnConfigured } from "@/lib/webrtc";
 import { SttClient, startCandidateStt } from "@/lib/stt";
 
-const ROOM_ID = "interview-room-1"; // Sabit room ID - gerçek uygulamada dinamik olmalı
-
 interface UseWebRTCOptions {
   localStream: MediaStream | null;
   onRemoteStream?: (stream: MediaStream) => void;
   sessionId?: string; // STT için session ID
+  roomId?: string; // Signaling için room ID (sessionId ile aynı olmalı)
   enableStt?: boolean; // STT'yi etkinleştir (sadece admin/mülakatçı tarafında)
 }
 
-export function useWebRTC({ localStream, onRemoteStream, sessionId, enableStt = false }: UseWebRTCOptions) {
+export function useWebRTC({ localStream, onRemoteStream, sessionId, roomId, enableStt = false }: UseWebRTCOptions) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const resolvedRoomId = roomId || sessionId || "interview-room-1";
   
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const signalingClientRef = useRef<SignalingClient | null>(null);
@@ -153,7 +153,11 @@ export function useWebRTC({ localStream, onRemoteStream, sessionId, enableStt = 
       setIsConnected(state === "connected");
       
       if (state === "failed" || state === "disconnected") {
-        setConnectionError("Bağlantı kesildi");
+        if (!isTurnConfigured()) {
+          setConnectionError("TURN sunucusu ayarlı değil. Farklı ağlarda bağlantı kurulamayabilir.");
+        } else {
+          setConnectionError("Bağlantı kesildi");
+        }
       } else {
         setConnectionError(null);
       }
@@ -376,7 +380,7 @@ export function useWebRTC({ localStream, onRemoteStream, sessionId, enableStt = 
         console.log("🔧 Peer connection oluşturuldu");
 
         // SONRA Signaling client oluştur ve bağlan
-        const signalingClient = new SignalingClient(ROOM_ID);
+        const signalingClient = new SignalingClient(resolvedRoomId);
         signalingClientRef.current = signalingClient;
 
         signalingClient.onMessage(handleSignalingMessage);
@@ -422,7 +426,7 @@ export function useWebRTC({ localStream, onRemoteStream, sessionId, enableStt = 
       setIsConnected(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localStream, sessionId, enableStt]); // localStream, sessionId veya enableStt değiştiğinde çalış
+  }, [localStream, sessionId, roomId, enableStt, resolvedRoomId]); // localStream, sessionId veya enableStt değiştiğinde çalış
 
   // Local stream değiştiğinde peer connection'ı güncelle
   useEffect(() => {

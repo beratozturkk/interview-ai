@@ -7,13 +7,13 @@ import os
 import json
 import re
 import logging
-from typing import List
+from typing import List, Optional
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
     genai = None
-    logging.warning("[Gemini Questions] google-generativeai paketi bulunamadı")
+    logging.warning("[Gemini Questions] google-genai paketi bulunamadı")
 
 logger = logging.getLogger(__name__)
 
@@ -27,22 +27,53 @@ GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
 MIN_TRANSCRIPT_LENGTH = 50  # karakter
 
 
+_client: Optional[object] = None
+
+
 def configure_gemini_client():
-    """Gemini client'ı yapılandır"""
+    """Gemini client'ı yapılandır ve singleton döndür"""
+    global _client
+
     if not genai:
         raise ImportError(
-            "google-generativeai paketi yüklü değil. "
-            "Lütfen requirements.txt'e google-generativeai>=0.8.0 ekleyin."
+            "google-genai paketi yüklü değil. "
+            "Lütfen requirements.txt'e google-genai>=0.1.0 ekleyin."
         )
-    
+
     if not GEMINI_API_KEY:
         raise ValueError(
             "GEMINI_API_KEY environment variable bulunamadı. "
             "Lütfen .env dosyasına veya Render environment variables'a ekleyin."
         )
-    
-    genai.configure(api_key=GEMINI_API_KEY)
-    logger.info(f"[Gemini Questions] Gemini client yapılandırıldı (model: {GEMINI_MODEL_NAME})")
+
+    if _client is None:
+        _client = genai.Client(api_key=GEMINI_API_KEY)
+        logger.info("[Gemini Questions] Gemini client yapılandırıldı (model: %s)", GEMINI_MODEL_NAME)
+
+    return _client
+
+
+def _extract_response_text(response: object) -> str:
+    text = getattr(response, "text", None)
+    if isinstance(text, str) and text.strip():
+        return text.strip()
+
+    candidates = getattr(response, "candidates", None)
+    if not candidates:
+        return ""
+
+    parts_text = []
+    for candidate in candidates:
+        content = getattr(candidate, "content", None)
+        parts = getattr(content, "parts", None) if content else None
+        if not parts:
+            continue
+        for part in parts:
+            part_text = getattr(part, "text", None)
+            if part_text:
+                parts_text.append(part_text)
+
+    return "".join(parts_text).strip()
 
 
 async def generate_question_suggestions(transcript: str, language: str = "tr") -> List[str]:
@@ -67,7 +98,7 @@ async def generate_question_suggestions(transcript: str, language: str = "tr") -
     
     # Gemini client'ı yapılandır
     try:
-        configure_gemini_client()
+        client = configure_gemini_client()
     except (ImportError, ValueError) as e:
         logger.error(f"[Gemini Questions] Gemini client yapılandırma hatası: {e}")
         raise
@@ -98,10 +129,14 @@ Sadece JSON array'i döndür, başka açıklama yapma."""
     )
     
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        response = model.generate_content(prompt)
-        
-        response_text = response.text.strip()
+        response = client.models.generate_content(
+            model=GEMINI_MODEL_NAME,
+            contents=prompt,
+        )
+
+        response_text = _extract_response_text(response)
+        if not response_text:
+            raise RuntimeError("Gemini yanıtı boş geldi")
         logger.debug(f"[Gemini Questions] Gemini response: {response_text[:200]}...")
         
         # JSON array'i bul (regex ile)
@@ -122,6 +157,9 @@ Sadece JSON array'i döndür, başka açıklama yapma."""
                 ", ".join(questions[:2]) + ("..." if len(questions) > 2 else ""),
             )
             
+            if not questions:
+                raise RuntimeError("Gemini JSON cevabi bos veya gecersiz")
+
             return questions
         else:
             # JSON bulunamadı, fallback: newline ile split et
@@ -148,12 +186,15 @@ Sadece JSON array'i döndür, başka açıklama yapma."""
                 len(questions),
             )
             
+            if not questions:
+                raise RuntimeError("Gemini fallback parsing bos sonuc verdi")
+
             return questions
-            
+
     except json.JSONDecodeError as e:
         logger.exception("[Gemini Questions] JSON parse hatası")
-        return []
-    except Exception as e:
+        raise
+    except Exception:
         logger.exception("[Gemini Questions] Gemini API çağrısı hatası")
-        return []
+        raise
 

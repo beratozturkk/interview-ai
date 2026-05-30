@@ -30,8 +30,13 @@ export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTrans
   const [items, setItems] = useState<TranscriptItem[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
+  const manualCloseRef = useRef(false);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
 
   // WebSocket bağlantısı
   useEffect(() => {
@@ -42,6 +47,7 @@ export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTrans
 
     console.log('[Transcript] WebSocket bağlantısı kuruluyor:', wsUrl);
 
+    manualCloseRef.current = false;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -49,11 +55,21 @@ export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTrans
       console.log('[Transcript] ✅ WebSocket connected');
       setIsConnected(true);
       setConnectionError(null);
+      reconnectAttemptsRef.current = 0;
     };
 
     ws.onclose = (event) => {
       console.log('[Transcript] WebSocket closed:', event.code, event.reason);
       setIsConnected(false);
+      if (!manualCloseRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        const delay = Math.min(1000 * (reconnectAttemptsRef.current + 1), 8000);
+        reconnectAttemptsRef.current += 1;
+        reconnectTimeoutRef.current = window.setTimeout(() => {
+          setReconnectAttempt((prev) => prev + 1);
+        }, delay);
+      } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+        setConnectionError('Transkript bağlantısı tekrar kurulamadı');
+      }
     };
 
     ws.onerror = (error) => {
@@ -104,12 +120,17 @@ export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTrans
     // Cleanup
     return () => {
       console.log('[Transcript] Cleanup - WebSocket kapatılıyor');
+      manualCloseRef.current = true;
+      if (reconnectTimeoutRef.current) {
+        window.clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       if (ws.readyState === WebSocket.OPEN) {
         ws.close(1000, 'Component unmount');
       }
       wsRef.current = null;
     };
-  }, [sessionId]);
+  }, [sessionId, reconnectAttempt]);
 
   // Yeni mesaj geldiğinde otomatik scroll ve callback
   useEffect(() => {

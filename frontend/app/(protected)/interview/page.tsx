@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useWebRTC } from "@/webrtc/useWebRTC";
 
 export default function InterviewRoomPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [duration, setDuration] = useState(0); // seconds
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
+  const [sessionId, setSessionId] = useState<string>("");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
@@ -17,13 +19,32 @@ export default function InterviewRoomPage() {
 
   // WebRTC bağlantısı
   const { remoteStream, isConnected, connectionError } = useWebRTC({
-    localStream,
+    localStream: sessionId ? localStream : null,
     onRemoteStream: (stream) => {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = stream;
       }
     },
+    sessionId,
+    roomId: sessionId,
   });
+
+  useEffect(() => {
+    const querySession = searchParams.get("session");
+    if (querySession && querySession.trim()) {
+      localStorage.setItem("interview_session_id", querySession.trim());
+      setSessionId(querySession.trim());
+      return;
+    }
+
+    const storedSession = localStorage.getItem("interview_session_id");
+    if (storedSession && storedSession.trim()) {
+      setSessionId(storedSession.trim());
+      return;
+    }
+
+    setSessionId("interview-room-1");
+  }, [searchParams]);
 
   // Süreyi otomatik başlat
   useEffect(() => {

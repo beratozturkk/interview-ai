@@ -32,6 +32,10 @@ export class SttClient {
   private onOpen?: () => void;
   private onClose?: () => void;
   private onError?: (error: Event) => void;
+  private reconnectAttempts = 0;
+  private reconnectTimeout: number | null = null;
+  private shouldReconnect = true;
+  private readonly maxReconnectAttempts = 5;
 
   constructor(options: SttClientOptions) {
     this.sessionId = options.sessionId;
@@ -39,6 +43,60 @@ export class SttClient {
     this.onOpen = options.onOpen;
     this.onClose = options.onClose;
     this.onError = options.onError;
+  }
+
+  private connect(): void {
+    if (!this.stream) {
+      console.warn('[STT] Stream yok, WebSocket acilamadi');
+      return;
+    }
+
+    const backendUrl = getBackendUrl();
+    const wsUrl = `${backendUrl}/api/v1/stt/ws/stt?session_id=${this.sessionId}&role=${this.role}`;
+
+    console.log('[STT] WebSocket bağlantısı kuruluyor:', wsUrl);
+
+    this.ws = new WebSocket(wsUrl);
+    this.ws.binaryType = 'arraybuffer';
+
+    this.ws.onopen = () => {
+      console.log('[STT] ✅ WebSocket opened');
+      this.reconnectAttempts = 0;
+      this.startRecording();
+      this.onOpen?.();
+    };
+
+    this.ws.onclose = (event) => {
+      console.log('[STT] WebSocket closed:', event.code, event.reason);
+      this.stopRecording();
+      this.onClose?.();
+
+      if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+        const delay = Math.min(1000 * (this.reconnectAttempts + 1), 8000);
+        this.reconnectAttempts += 1;
+        this.reconnectTimeout = window.setTimeout(() => {
+          this.connect();
+        }, delay);
+      }
+    };
+
+    this.ws.onerror = (error) => {
+      console.error('[STT] ❌ WebSocket error:', error);
+      this.onError?.(error);
+    };
+
+    this.ws.onmessage = (event) => {
+      if (event.data === 'ping') {
+        this.ws?.send('pong');
+        return;
+      }
+      if (event.data === 'pong') {
+        return;
+      }
+
+      // Backend'den gelen mesajları logla (debug için)
+      console.log('[STT] Message from server:', event.data);
+    };
   }
 
   /**
@@ -52,35 +110,8 @@ export class SttClient {
 
     this.stream = stream;
 
-    const backendUrl = getBackendUrl();
-    const wsUrl = `${backendUrl}/api/v1/stt/ws/stt?session_id=${this.sessionId}&role=${this.role}`;
-
-    console.log('[STT] WebSocket bağlantısı kuruluyor:', wsUrl);
-
-    this.ws = new WebSocket(wsUrl);
-    this.ws.binaryType = 'arraybuffer';
-
-    this.ws.onopen = () => {
-      console.log('[STT] ✅ WebSocket opened');
-      this.startRecording();
-      this.onOpen?.();
-    };
-
-    this.ws.onclose = (event) => {
-      console.log('[STT] WebSocket closed:', event.code, event.reason);
-      this.stopRecording();
-      this.onClose?.();
-    };
-
-    this.ws.onerror = (error) => {
-      console.error('[STT] ❌ WebSocket error:', error);
-      this.onError?.(error);
-    };
-
-    this.ws.onmessage = (event) => {
-      // Backend'den gelen mesajları logla (debug için)
-      console.log('[STT] Message from server:', event.data);
-    };
+    this.shouldReconnect = true;
+    this.connect();
   }
 
   /**
@@ -170,7 +201,13 @@ export class SttClient {
    */
   stop(): void {
     console.log('[STT] Durduruluyor...');
-    
+    this.shouldReconnect = false;
+
+    if (this.reconnectTimeout) {
+      window.clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
     this.stopRecording();
 
     if (this.ws) {

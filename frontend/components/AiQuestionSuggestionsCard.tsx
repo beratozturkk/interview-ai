@@ -76,7 +76,10 @@ export function AiQuestionSuggestionsCard({
       console.log("[AI Questions] Soru önerileri alındı:", data.questions);
     } catch (err) {
       console.error("[AI Questions] Hata:", err);
-      setError("Soru önerileri alınırken bir hata oluştu. Lütfen tekrar deneyin.");
+      const message = err instanceof Error && err.message
+        ? err.message
+        : "Soru önerileri alınırken bir hata oluştu. Lütfen tekrar deneyin.";
+      setError(message);
     } finally {
       setIsLoading(false);
     }

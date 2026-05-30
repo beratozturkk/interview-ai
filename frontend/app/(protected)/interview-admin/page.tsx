@@ -1,22 +1,23 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useWebRTC } from "@/webrtc/useWebRTC";
 import { LiveTranscriptPanel, TranscriptItem } from "@/components/LiveTranscriptPanel";
 import { AiQuestionSuggestionsCard } from "@/components/AiQuestionSuggestionsCard";
 
-// Mülakat oturum ID'si - gerçek uygulamada dinamik olmalı
-const SESSION_ID = "interview-room-1";
+const SESSION_STORAGE_KEY = "interview_session_id";
 
 export default function InterviewAdminPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isInterviewStarted, setIsInterviewStarted] = useState(true); // Otomatik başlat
   const [duration, setDuration] = useState(0); // seconds
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
+  const [sessionId, setSessionId] = useState<string>("");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
@@ -26,15 +27,35 @@ export default function InterviewAdminPage() {
 
   // WebRTC bağlantısı - STT etkin (admin/mülakatçı tarafında aday sesini yakalayacak)
   const { remoteStream, isConnected, connectionError } = useWebRTC({
-    localStream,
+    localStream: sessionId ? localStream : null,
     onRemoteStream: (stream) => {
       if (mainVideoRef.current) {
         mainVideoRef.current.srcObject = stream;
       }
     },
-    sessionId: SESSION_ID,
+    sessionId,
+    roomId: sessionId,
     enableStt: true, // Mülakatçı tarafında STT etkin - aday sesi transkript edilecek
   });
+
+  useEffect(() => {
+    const querySession = searchParams.get("session");
+    if (querySession && querySession.trim()) {
+      localStorage.setItem(SESSION_STORAGE_KEY, querySession.trim());
+      setSessionId(querySession.trim());
+      return;
+    }
+
+    const storedSession = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (storedSession && storedSession.trim()) {
+      setSessionId(storedSession.trim());
+      return;
+    }
+
+    const defaultSession = "interview-room-1";
+    localStorage.setItem(SESSION_STORAGE_KEY, defaultSession);
+    setSessionId(defaultSession);
+  }, [searchParams]);
 
   useEffect(() => {
     if (isInterviewStarted) {
@@ -374,13 +395,13 @@ export default function InterviewAdminPage() {
         <div className="p-6 space-y-6">
           {/* Canlı Transkript - WebSocket üzerinden gerçek zamanlı */}
           <LiveTranscriptPanel 
-            sessionId={SESSION_ID} 
+            sessionId={sessionId} 
             onTranscriptChange={setTranscriptItems}
           />
 
           {/* Soru Önerileri (Gemini) - Duygu Analizi yerine */}
           <AiQuestionSuggestionsCard 
-            sessionId={SESSION_ID}
+            sessionId={sessionId}
             transcriptItems={transcriptItems}
           />
 

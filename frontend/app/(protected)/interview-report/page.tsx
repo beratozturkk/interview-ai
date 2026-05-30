@@ -84,7 +84,10 @@ export default function InterviewReportPage() {
         console.log("[Interview Report] Rapor alındı:", data);
       } catch (err) {
         console.error("[Interview Report] Hata:", err);
-        setError("Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
+        const message = err instanceof Error && err.message
+          ? err.message
+          : "Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.";
+        setError(message);
       } finally {
         setLoading(false);
       }

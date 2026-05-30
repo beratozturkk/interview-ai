@@ -7,41 +7,71 @@ import os
 import json
 import re
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
     genai = None
-    logging.warning("[Gemini Report] google-generativeai paketi bulunamadı")
+    logging.warning("[Gemini Report] google-genai paketi bulunamadı")
 
 logger = logging.getLogger(__name__)
 
 # Gemini API Key - environment variable'dan al
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Gemini model - varsayılan gemini-1.5-flash-001
+# Gemini model - varsayılan gemini-2.5-flash
 GEMINI_REPORT_MODEL_NAME = os.getenv("GEMINI_REPORT_MODEL", "gemini-2.5-flash")
 
 # Minimum transcript uzunluğu
 MIN_TRANSCRIPT_LENGTH = 20  # karakter
 
 
+_client: Optional[object] = None
+
+
 def _configure_gemini():
-    """Gemini client'ı yapılandır ve model döndür"""
+    """Gemini client'ı yapılandır ve döndür"""
+    global _client
+
     if not genai:
         raise ImportError(
-            "google-generativeai paketi yüklü değil. "
-            "Lütfen requirements.txt'e google-generativeai>=0.8.0 ekleyin."
+            "google-genai paketi yüklü değil. "
+            "Lütfen requirements.txt'e google-genai>=0.1.0 ekleyin."
         )
-    
+
     if not GEMINI_API_KEY:
         logger.error("[Gemini Report] GEMINI_API_KEY is not set")
         raise RuntimeError("GEMINI_API_KEY not configured")
-    
-    genai.configure(api_key=GEMINI_API_KEY)
-    logger.info("[Gemini Report] Gemini configured (model=%s)", GEMINI_REPORT_MODEL_NAME)
-    return genai.GenerativeModel(GEMINI_REPORT_MODEL_NAME)
+
+    if _client is None:
+        _client = genai.Client(api_key=GEMINI_API_KEY)
+        logger.info("[Gemini Report] Gemini configured (model=%s)", GEMINI_REPORT_MODEL_NAME)
+
+    return _client
+
+
+def _extract_response_text(response: object) -> str:
+    text = getattr(response, "text", None)
+    if isinstance(text, str) and text.strip():
+        return text.strip()
+
+    candidates = getattr(response, "candidates", None)
+    if not candidates:
+        return ""
+
+    parts_text = []
+    for candidate in candidates:
+        content = getattr(candidate, "content", None)
+        parts = getattr(content, "parts", None) if content else None
+        if not parts:
+            continue
+        for part in parts:
+            part_text = getattr(part, "text", None)
+            if part_text:
+                parts_text.append(part_text)
+
+    return "".join(parts_text).strip()
 
 
 def _empty_report() -> Dict[str, Any]:
@@ -96,10 +126,10 @@ def generate_interview_report(transcript: str, language: str = "tr") -> Dict[str
         return _empty_report()
     
     try:
-        model = _configure_gemini()
+        client = _configure_gemini()
     except (ImportError, ValueError, RuntimeError) as e:
         logger.error(f"[Gemini Report] Gemini client yapılandırma hatası: {e}")
-        return _empty_report()
+        raise
     
     prompt = f"""
 Sen bir kıdemli teknik işe alım uzmanı gibi davranan yapay zekâsın.
@@ -140,8 +170,13 @@ MÜLAKAT TRANSKRİPTİ:
             "[Gemini Report] Requesting report from Gemini (len=%d chars)",
             len(transcript),
         )
-        response = model.generate_content(prompt)
-        raw = response.text.strip()
+        response = client.models.generate_content(
+            model=GEMINI_REPORT_MODEL_NAME,
+            contents=prompt,
+        )
+        raw = _extract_response_text(response)
+        if not raw:
+            raise RuntimeError("Gemini yanıtı boş geldi")
         logger.info("[Gemini Report] Raw Gemini response (first 200 chars): %s", raw[:200])
         
         # Markdown code block'ları temizle
@@ -162,8 +197,8 @@ MÜLAKAT TRANSKRİPTİ:
             
     except json.JSONDecodeError:
         logger.exception("[Gemini Report] JSON parse error, returning empty report")
-        return _empty_report()
+        raise
     except Exception:
-        logger.exception("[Gemini Report] Unexpected error, returning empty report")
-        return _empty_report()
+        logger.exception("[Gemini Report] Unexpected error")
+        raise
 

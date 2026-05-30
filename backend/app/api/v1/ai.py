@@ -96,11 +96,11 @@ async def generate_questions(payload: QuestionSuggestionsRequest):
             detail="Gemini API is not configured. Please check GEMINI_API_KEY environment variable.",
         )
     except ImportError as e:
-        # google-generativeai paketi yüklü değil
+        # google-genai paketi yüklü değil
         logger.error(f"[AI] Gemini paket import hatası: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Gemini API package is not installed. Please install google-generativeai>=0.8.0",
+            detail="Gemini API package is not installed. Please install google-genai>=0.1.0",
         )
     except Exception as e:
         logger.exception("[AI] Soru önerisi üretme hatası")
@@ -200,11 +200,11 @@ async def generate_report(payload: InterviewReportRequest):
             detail="Gemini API is not configured. Please check GEMINI_API_KEY environment variable.",
         )
     except ImportError as e:
-        # google-generativeai paketi yüklü değil
+        # google-genai paketi yüklü değil
         logger.error(f"[AI] Gemini paket import hatası: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Gemini API package is not installed. Please install google-generativeai>=0.8.0",
+            detail="Gemini API package is not installed. Please install google-genai>=0.1.0",
         )
     except Exception as e:
         logger.exception("[AI] Rapor üretme hatası")
