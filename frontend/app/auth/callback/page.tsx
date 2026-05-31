@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 function AuthCallbackContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const checkUserAndRedirect = async (user: any) => {
@@ -74,33 +75,50 @@ function AuthCallbackContent() {
     });
 
     // Mevcut session'ı kontrol et (sayfa yenilendiğinde veya direkt erişildiğinde)
-    const checkExistingSession = async () => {
+   const handleAuthCallback = async () => {
+      const code = searchParams.get("code");
+
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (error) {
+          console.error("Code exchange hatası:", error.message);
+          router.replace("/login?error=auth_callback_failed");
+          return;
+        }
+
+        if (data.session?.user) {
+          await checkUserAndRedirect(data.session.user);
+          return;
+        }
+      }
+
       const {
         data: { session },
         error,
       } = await supabase.auth.getSession();
 
       if (error) {
-        console.error("Session kontrolü hatası:", error);
+        console.error("Session kontrolü hatası:", error.message);
         router.replace("/login?error=auth_failed");
         return;
       }
 
       if (session?.user) {
         await checkUserAndRedirect(session.user);
-      } else {
-        // Session yoksa login sayfasına yönlendir
-        router.replace("/login");
+        return;
       }
+
+      router.replace("/login");
     };
 
-    checkExistingSession();
+    handleAuthCallback();
 
     // Cleanup: subscription'ı temizle
     return () => {
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700">
