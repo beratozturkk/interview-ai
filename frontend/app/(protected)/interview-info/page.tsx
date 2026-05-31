@@ -121,15 +121,10 @@ export default function InterviewInfoPage() {
                     : "Planlanmış bir mülakat bulunamadı."}
                 </p>
               </div>
-              {nextInterview?.meeting_url && (
-                <a
-                  href={nextInterview.meeting_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-purple-600 underline"
-                >
-                  Görüşme linki
-                </a>
+              {nextInterview?.status === "in_progress" ? (
+                <span className="text-sm text-green-600">Yönetici toplantıyı başlattı</span>
+              ) : (
+                <span className="text-sm text-gray-500">Yönetici başlattığında giriş açılacak</span>
               )}
             </div>
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Mülakat Akışı</h2>
@@ -167,12 +162,14 @@ export default function InterviewInfoPage() {
                 </p>
               </div>
               <Button
-                onClick={() =>
-                  router.push(nextInterview?.session_id ? `/interview?session=${nextInterview.session_id}` : "/interview")
-                }
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-full text-base font-medium"
+                onClick={() => {
+                  if (!nextInterview?.session_id) return;
+                  router.push(`/interview?session=${nextInterview.session_id}`);
+                }}
+                disabled={!nextInterview || nextInterview.status !== "in_progress"}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-full text-base font-medium disabled:bg-purple-200 disabled:text-purple-700"
               >
-                Mülakatı Başlat
+                Mülakata Gir
               </Button>
             </div>
           </Card>

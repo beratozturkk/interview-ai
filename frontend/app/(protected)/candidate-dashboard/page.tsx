@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "@/lib/auth";
+import { supabase } from "@/lib/supabaseClient";
 import {
   fetchInterviewReports,
   fetchPastInterviews,
@@ -15,6 +16,14 @@ import {
 } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return "Tarih belirlenmedi";
@@ -36,6 +45,8 @@ export default function CandidateDashboardPage() {
   const [reportMap, setReportMap] = useState<Record<string, InterviewReportRecord>>({});
   const [recentTranscript, setRecentTranscript] = useState<TranscriptSegmentRecord[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [incomingInterview, setIncomingInterview] = useState<InterviewRecord | null>(null);
 
   const nextInterview = useMemo(() => upcomingInterviews[0], [upcomingInterviews]);
 
@@ -74,9 +85,49 @@ export default function CandidateDashboardPage() {
     loadData();
   }, [user, loading]);
 
+  useEffect(() => {
+    if (!user || loading) return;
+
+    const channel = supabase
+      .channel(`candidate-interviews-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "interviews",
+          filter: `candidate_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as InterviewRecord;
+          if (updated.status === "in_progress") {
+            setIncomingInterview(updated);
+            setJoinDialogOpen(true);
+          }
+          setUpcomingInterviews((prev) => {
+            const exists = prev.some((item) => item.id === updated.id);
+            if (exists) {
+              return prev.map((item) => (item.id === updated.id ? updated : item));
+            }
+            return [updated, ...prev];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, loading]);
+
   const handleLogout = async () => {
     await signOut();
     router.push("/login");
+  };
+
+  const handleJoinInterview = (interview: InterviewRecord) => {
+    setJoinDialogOpen(false);
+    router.push(`/interview?session=${interview.session_id}`);
   };
 
   if (loading) {
@@ -111,23 +162,22 @@ export default function CandidateDashboardPage() {
                 <p className="text-sm uppercase tracking-wider text-purple-500 font-semibold">{nextInterview.title || "Teknik Mülakat"}</p>
                 <p className="text-lg font-semibold text-gray-900 mt-2">{formatDateTime(nextInterview.scheduled_at)}</p>
                 <p className="text-sm text-gray-500 mt-1">Durum: {nextInterview.status}</p>
-                {nextInterview.meeting_url && (
-                  <a
-                    href={nextInterview.meeting_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm text-purple-600 underline mt-2 inline-block"
-                  >
-                    Gorüsme linki
-                  </a>
-                )}
               </div>
-              <Button
-                onClick={() => router.push("/interview-info")}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6"
-              >
-                Mülakat Oncesi Hazirlik
-              </Button>
+              {nextInterview.status === "in_progress" ? (
+                <Button
+                  onClick={() => handleJoinInterview(nextInterview)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-6"
+                >
+                  Mülakata Gir
+                </Button>
+              ) : (
+                <Button
+                  disabled
+                  className="bg-purple-200 text-purple-700 px-6 cursor-not-allowed"
+                >
+                  Yonetici baslatinca aktif
+                </Button>
+              )}
             </div>
           ) : (
             <p className="text-sm text-gray-500 mt-4">Planli bir mülakat gorunmuyor.</p>
@@ -183,6 +233,31 @@ export default function CandidateDashboardPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Mulakat basladi</DialogTitle>
+            <DialogDescription>
+              Yonetici gorusmeyi baslatti. Hazirsan hemen katilabilirsin.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (incomingInterview) {
+                  handleJoinInterview(incomingInterview);
+                } else {
+                  setJoinDialogOpen(false);
+                }
+              }}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Mulakata Gir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

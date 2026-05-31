@@ -15,6 +15,7 @@ import {
   InterviewRecord,
   InterviewReportRecord,
   ProfileRecord,
+  updateInterviewStatus,
 } from "@/lib/db";
 
 export default function DashboardPage() {
@@ -29,7 +30,6 @@ export default function DashboardPage() {
     candidateId: "",
     scheduledAt: "",
     title: "",
-    meetingUrl: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -165,7 +165,6 @@ export default function DashboardPage() {
       interviewerId: user.id,
       scheduledAt: scheduledAtIso,
       title: scheduleForm.title || undefined,
-      meetingUrl: scheduleForm.meetingUrl || undefined,
       sessionId,
     });
 
@@ -179,7 +178,6 @@ export default function DashboardPage() {
       candidateId: "",
       scheduledAt: "",
       title: "",
-      meetingUrl: "",
     });
 
     const upcoming = await fetchUpcomingInterviews(user.id, true);
@@ -301,7 +299,7 @@ export default function DashboardPage() {
 
             {formError && <p className="text-sm text-red-600 mt-3">{formError}</p>}
 
-            <form onSubmit={handleScheduleSubmit} className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form onSubmit={handleScheduleSubmit} className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-1">
                 <label className="text-xs text-gray-500">Aday</label>
                 <select
@@ -317,6 +315,11 @@ export default function DashboardPage() {
                     </option>
                   ))}
                 </select>
+                {!dataLoading && candidateProfiles.length === 0 && (
+                  <p className="text-xs text-red-500 mt-2">
+                    Aday bulunamadı. Adayın en az bir kez giriş yapması ve profiles tablosunda görünmesi gerekiyor.
+                  </p>
+                )}
               </div>
               <div className="md:col-span-1">
                 <label className="text-xs text-gray-500">Tarih</label>
@@ -337,17 +340,7 @@ export default function DashboardPage() {
                   className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
-              <div className="md:col-span-1">
-                <label className="text-xs text-gray-500">Görüsme Linki</label>
-                <input
-                  type="text"
-                  value={scheduleForm.meetingUrl}
-                  onChange={(event) => handleScheduleChange("meetingUrl", event.target.value)}
-                  placeholder="https://meet.google.com/..."
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="md:col-span-4 flex justify-end">
+              <div className="md:col-span-3 flex justify-end">
                 <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">
                   Mülakat Planla
                 </Button>
@@ -452,10 +445,15 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <Button
-                      onClick={() => router.push(`/interview-admin?interview_id=${interview.id}`)}
+                      onClick={async () => {
+                        if (interview.status === "scheduled") {
+                          await updateInterviewStatus(interview.id, "in_progress");
+                        }
+                        router.push(`/interview-admin?interview_id=${interview.id}`);
+                      }}
                       className="bg-purple-600 hover:bg-purple-700 text-white"
                     >
-                      Oturuma Git
+                      {interview.status === "in_progress" ? "Toplantıya Git" : "Toplantıyı Başlat"}
                     </Button>
                   </div>
                 ))}
