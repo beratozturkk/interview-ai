@@ -28,9 +28,10 @@ try:
 except ImportError as e:
     # Fallback: Eğer import başarısız olursa dummy fonksiyon kullan
     logger.warning(f"[STT] Whisper STT import edilemedi: {e}, dummy fonksiyon kullanılıyor")
-    
+
     async def transcribe_with_whisper_chunk(audio_bytes: bytes, language: str = "tr") -> str:
         return "[Whisper STT import hatası - OPENAI_API_KEY kontrol edin]"
+
 
 router = APIRouter()
 
@@ -40,9 +41,9 @@ transcript_clients: Dict[str, List[WebSocket]] = {}
 # STT pipeline tuning constants
 MIN_CHUNK_BYTES = 1800
 FIRST_WINDOW_CHUNKS = 1
-REGULAR_WINDOW_CHUNKS = 2
+REGULAR_WINDOW_CHUNKS = 1
 REGULAR_WINDOW_STEP_CHUNKS = 1
-MAX_WINDOW_CHUNKS = 4
+MAX_WINDOW_CHUNKS = 1
 MAX_STT_QUEUE_SIZE = 8
 STT_PROVIDER_TIMEOUT_SEC = 25
 KEEPALIVE_PING_INTERVAL_SEC = 20
@@ -53,6 +54,15 @@ MAX_OVERLAP_WORDS = 14
 PUBLISHED_TAIL_WORDS = 120
 NEAR_DUPLICATE_SIMILARITY = 0.92
 RECENT_EMIT_WINDOW = 12
+
+# Whisper'ın sessizlik/bozuk ses durumunda üretebildiği sahte altyazı kalıpları
+NOISE_PHRASES = [
+    "abone olmayı",
+    "beğen butonuna",
+    "yorum yapmayı",
+    "altyazı",
+    "m.k",
+]
 
 
 @dataclass
@@ -65,7 +75,7 @@ class IncrementalTranscriptState:
 
 
 def get_session_clients(session_id: str) -> List[WebSocket]:
-    """Session'a ait transcript client'larını döndür"""
+    """Session'a ait transcript client'larını döndür."""
     if session_id not in transcript_clients:
         transcript_clients[session_id] = []
     return transcript_clients[session_id]
@@ -92,14 +102,26 @@ def _tail_words(text: str, max_words: int) -> str:
     return " ".join(words[-max_words:])
 
 
+def _looks_like_webm(audio_bytes: bytes) -> bool:
+    """WebM/Matroska EBML header kontrolü: 1A 45 DF A3."""
+    return len(audio_bytes) >= 4 and audio_bytes[:4] == b"\x1a\x45\xdf\xa3"
+
+
 def _is_noise_text(text: str) -> bool:
     cleaned = _clean_spaces(text)
     if not cleaned:
         return True
+
+    lowered = cleaned.lower()
+    if any(phrase in lowered for phrase in NOISE_PHRASES):
+        return True
+
     if len(cleaned) < MIN_TEXT_CHARS:
         return True
+
     if re.fullmatch(r"[\.\,\;\:\!\?\-\_\(\)\[\]\{\}\'\"\`\~\s\/\\\|]+", cleaned):
         return True
+
     if re.fullmatch(r"[A-Za-z](?:\s*\.\s*[A-Za-z]){1,3}\.?", cleaned):
         return True
 
@@ -190,19 +212,19 @@ async def _send_keepalive_ping(ws: WebSocket, channel_name: str, session_id: str
 
 async def broadcast_transcript(session_id: str, role: str, text: str):
     """
-    Transcript mesajını session'daki tüm client'lara gönder
-    
+    Transcript mesajını session'daki tüm client'lara gönder.
+
     Args:
         session_id: Mülakat oturum ID'si
         role: "Aday" veya "Görüşmeci"
         text: Transcribe edilmiş metin
     """
     clients = transcript_clients.get(session_id, [])
-    
+
     if not clients:
         logger.debug("[STT] No transcript clients connected for session: %s", session_id)
         return
-    
+
     logger.info(
         "[STT] Broadcasting transcript: session_id=%s clients=%d role=%s text_length=%d",
         session_id,
@@ -210,9 +232,9 @@ async def broadcast_transcript(session_id: str, role: str, text: str):
         role,
         len(text),
     )
-    
+
     disconnected_clients = []
-    
+
     for client in list(clients):
         try:
             # Frontend'in beklediği format: { role, text }
@@ -224,7 +246,7 @@ async def broadcast_transcript(session_id: str, role: str, text: str):
         except Exception as e:
             logger.warning("[STT] Transcript gönderim hatası: session_id=%s error=%s", session_id, e)
             disconnected_clients.append(client)
-    
+
     # Bağlantısı kopan client'ları temizle
     for client in disconnected_clients:
         if client in clients:
@@ -237,24 +259,24 @@ async def broadcast_transcript(session_id: str, role: str, text: str):
 @router.websocket("/ws/transcript")
 async def transcript_ws(
     ws: WebSocket,
-    session_id: str = Query(..., description="Mülakat oturum ID'si")
+    session_id: str = Query(..., description="Mülakat oturum ID'si"),
 ):
     """
-    Transcript broadcast WebSocket endpoint
-    
+    Transcript broadcast WebSocket endpoint.
+
     Client'lar bu endpoint'e bağlanarak canlı transkript mesajlarını alır.
     Sadece mesaj almak için kullanılır, mesaj göndermez.
-    
+
     Query Params:
         session_id: Mülakat oturum ID'si
     """
     await ws.accept()
     logger.info("[Transcript WS] Client connected: session_id=%s", session_id)
-    
+
     clients = get_session_clients(session_id)
     clients.append(ws)
     ping_task = asyncio.create_task(_send_keepalive_ping(ws, "Transcript WS", session_id))
-    
+
     try:
         # Bağlantıyı açık tut, app-level ping/pong mesajlarını işle.
         while True:
@@ -294,15 +316,14 @@ async def transcript_ws(
 async def stt_ws(
     ws: WebSocket,
     session_id: str = Query(..., description="Mülakat oturum ID'si"),
-    role: str = Query("candidate", description="Konuşmacı rolü: candidate veya interviewer")
+    role: str = Query("candidate", description="Konuşmacı rolü: candidate veya interviewer"),
 ):
     """
-    STT (Speech-to-Text) WebSocket endpoint
-    
-    Client her 3 saniyede bir WebM chunk gönderir.
-    Backend bu chunk'ları queue'ya alır, segment/window bazlı işler,
-    incremental dedup uygular ve transcript WS client'larına yayınlar.
-    
+    STT (Speech-to-Text) WebSocket endpoint.
+
+    Client bağımsız WebM segmentleri gönderir.
+    Backend her segmenti tek başına işler, dedup uygular ve transcript WS client'larına yayınlar.
+
     Query Params:
         session_id: Mülakat oturum ID'si
         role: "candidate" (Aday) veya "interviewer" (Görüşmeci)
@@ -321,76 +342,60 @@ async def stt_ws(
     chunks_since_last_window = 0
 
     async def transcribe_window(chunks: List[bytes]) -> str:
-        """Transcribe a window of chunks with timeout and fallback logic."""
+        """Transcribe a single complete WebM segment with timeout."""
         if not chunks:
             return ""
 
-        payload = b"".join(chunks)
+        # MAX_WINDOW_CHUNKS = 1 olduğu için normalde zaten tek segment gelir.
+        # Yine de güvenli olmak için her zaman son bağımsız segmenti işliyoruz.
+        payload = chunks[-1]
         started = perf_counter()
+
+        if not _looks_like_webm(payload):
+            logger.warning(
+                "[STT] Dropped invalid standalone WebM segment: session_id=%s role=%s bytes=%d first_bytes=%s",
+                session_id,
+                role,
+                len(payload),
+                payload[:16].hex(),
+            )
+            return ""
+
         try:
             text = await asyncio.wait_for(
                 transcribe_with_whisper_chunk(payload, language="tr"),
                 timeout=STT_PROVIDER_TIMEOUT_SEC,
             )
+
             latency_ms = int((perf_counter() - started) * 1000)
             logger.info(
-                "[STT] Transcription finished: session_id=%s role=%s chunks=%d bytes=%d latency_ms=%d",
+                "[STT] Transcription finished: session_id=%s role=%s bytes=%d latency_ms=%d",
                 session_id,
                 role,
-                len(chunks),
                 len(payload),
                 latency_ms,
             )
 
-            if text and text.strip():
-                return text
+            return text or ""
+
         except asyncio.TimeoutError:
             logger.warning(
-                "[STT] Provider timeout: session_id=%s role=%s chunks=%d bytes=%d timeout_s=%d",
+                "[STT] Provider timeout: session_id=%s role=%s bytes=%d timeout_s=%d",
                 session_id,
                 role,
-                len(chunks),
                 len(payload),
                 STT_PROVIDER_TIMEOUT_SEC,
             )
             return ""
+
         except Exception:
             logger.exception(
-                "[STT] Provider call failed: session_id=%s role=%s chunks=%d bytes=%d",
+                "[STT] Provider call failed: session_id=%s role=%s bytes=%d",
                 session_id,
                 role,
-                len(chunks),
                 len(payload),
             )
             return ""
-
-        # Window birleşimi boş dönerse son chunk ile fallback dene.
-        if len(chunks) > 1:
-            fallback_chunk = chunks[-1]
-            fallback_started = perf_counter()
-            try:
-                text = await asyncio.wait_for(
-                    transcribe_with_whisper_chunk(fallback_chunk, language="tr"),
-                    timeout=STT_PROVIDER_TIMEOUT_SEC,
-                )
-                fallback_latency_ms = int((perf_counter() - fallback_started) * 1000)
-                logger.info(
-                    "[STT] Fallback transcription: session_id=%s role=%s bytes=%d latency_ms=%d",
-                    session_id,
-                    role,
-                    len(fallback_chunk),
-                    fallback_latency_ms,
-                )
-                return text or ""
-            except Exception:
-                logger.exception(
-                    "[STT] Fallback transcription failed: session_id=%s role=%s bytes=%d",
-                    session_id,
-                    role,
-                    len(fallback_chunk),
-                )
-
-        return ""
 
     async def stt_worker():
         nonlocal first_publish_done, chunks_since_last_window
@@ -526,7 +531,7 @@ async def stt_ws(
                 continue
 
             chunk_count += 1
-            
+
             # Çok küçük chunk'ları ignore et (noise)
             if len(audio_bytes) < MIN_CHUNK_BYTES:
                 logger.debug(
@@ -561,12 +566,13 @@ async def stt_ws(
                 )
 
             logger.debug(
-                "[STT] Queued audio chunk: session_id=%s role=%s chunk=%d size=%d queue_size=%d",
+                "[STT] Queued audio chunk: session_id=%s role=%s chunk=%d size=%d queue_size=%d first_bytes=%s",
                 session_id,
                 role,
                 chunk_count,
                 len(audio_bytes),
                 audio_queue.qsize(),
+                audio_bytes[:8].hex(),
             )
 
     except WebSocketDisconnect as exc:
@@ -596,4 +602,3 @@ async def stt_ws(
             chunk_count,
             audio_queue.qsize(),
         )
-

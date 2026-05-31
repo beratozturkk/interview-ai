@@ -84,17 +84,16 @@ def _transcribe_with_whisper_chunk_sync(
         return transcript_text
 
     except BadRequestError as e:
-        # Extra logging to debug format issues - sadece bir kez logla (noisy log önleme)
-        global _bad_request_logged
-        if not _bad_request_logged:
-            sample_hex = audio_bytes[:32].hex()
-            logger.error(
-                "[Whisper STT] BadRequestError: %s | first_bytes_hex=%s",
-                str(e),
-                sample_hex,
-            )
-            logger.exception("[Whisper STT] BadRequestError details")
-            _bad_request_logged = True
+        sample_hex = audio_bytes[:32].hex()
+
+        logger.error(
+            "[Whisper STT] BadRequestError status=%s body=%s first_bytes_hex=%s audio_size=%d",
+            getattr(e, "status_code", None),
+            getattr(e, "body", None),
+            sample_hex,
+            len(audio_bytes),
+        )
+
         return ""
     except Exception:
         logger.exception("[Whisper STT] Error while transcribing chunk")
