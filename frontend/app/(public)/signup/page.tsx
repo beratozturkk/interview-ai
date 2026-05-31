@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { ensureProfile } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -48,6 +49,7 @@ export default function SignupPage() {
           setError(null);
           setSuccessMessage("Kayıt başarılı! Lütfen e-postanızı kontrol edin ve doğrulama linkine tıklayın.");
         } else {
+          await ensureProfile(data.user);
           router.push("/candidate-dashboard");
         }
       }

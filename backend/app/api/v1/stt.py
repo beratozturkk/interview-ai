@@ -100,6 +100,8 @@ def _is_noise_text(text: str) -> bool:
         return True
     if re.fullmatch(r"[\.\,\;\:\!\?\-\_\(\)\[\]\{\}\'\"\`\~\s\/\\\|]+", cleaned):
         return True
+    if re.fullmatch(r"[A-Za-z](?:\s*\.\s*[A-Za-z]){1,3}\.?", cleaned):
+        return True
 
     alnum_count = sum(ch.isalnum() for ch in cleaned)
     if alnum_count < 2:

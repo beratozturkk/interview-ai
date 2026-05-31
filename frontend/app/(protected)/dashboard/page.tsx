@@ -226,6 +226,7 @@ export default function DashboardPage() {
 
   const maxValue = Math.max(...graphData, 1);
   const graphHeight = 200;
+  const graphWidth = 100;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -370,14 +371,20 @@ export default function DashboardPage() {
               <p className="text-sm text-gray-600">Son 7 gün</p>
             </div>
             <div className="relative" style={{ height: `${graphHeight}px` }}>
-              <svg width="100%" height={graphHeight} className="overflow-visible">
+              <svg
+                width="100%"
+                height={graphHeight}
+                viewBox={`0 0 ${graphWidth} ${graphHeight}`}
+                preserveAspectRatio="none"
+                className="overflow-visible"
+              >
                 {/* Grid lines */}
                 {[0, 7, 14, 21, 28].map((value) => (
                   <line
                     key={value}
                     x1="0"
                     y1={graphHeight - (value / maxValue) * graphHeight}
-                    x2="100%"
+                    x2={graphWidth}
                     y2={graphHeight - (value / maxValue) * graphHeight}
                     stroke="#e5e7eb"
                     strokeWidth="1"
@@ -388,7 +395,7 @@ export default function DashboardPage() {
                   points={graphData
                     .map(
                       (value, index) =>
-                        `${(index / (graphData.length - 1)) * 100}%,${graphHeight - (value / maxValue) * graphHeight}`
+                        `${(index / (graphData.length - 1)) * graphWidth},${graphHeight - (value / maxValue) * graphHeight}`
                     )
                     .join(" ")}
                   fill="none"
@@ -401,7 +408,7 @@ export default function DashboardPage() {
                 {graphData.map((value, index) => (
                   <circle
                     key={index}
-                    cx={`${(index / (graphData.length - 1)) * 100}%`}
+                    cx={(index / (graphData.length - 1)) * graphWidth}
                     cy={graphHeight - (value / maxValue) * graphHeight}
                     r="6"
                     fill="#9333ea"

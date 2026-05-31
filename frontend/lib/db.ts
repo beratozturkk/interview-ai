@@ -141,8 +141,7 @@ export async function fetchUpcomingInterviews(userId: string, isAdmin: boolean) 
   let query = supabase
     .from("interviews")
     .select("*")
-    .in("status", ["scheduled", "in_progress"])
-    .gte("scheduled_at", nowIso)
+    .or(`status.eq.in_progress,and(status.eq.scheduled,scheduled_at.gte.${nowIso})`)
     .order("scheduled_at", { ascending: true });
 
   if (!isAdmin) {
