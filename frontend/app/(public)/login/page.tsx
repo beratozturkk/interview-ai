@@ -194,28 +194,31 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    setError(null);
-    setSuccessMessage(null);
-    setLoading(true);
+  setError(null);
+  setSuccessMessage(null);
+  setLoading(true);
 
-    try {
-      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: "select_account",
         },
-      });
+      },
+    });
 
-      if (signInError) {
-        setError(signInError.message);
-        setLoading(false);
-      }
-      // OAuth redirect otomatik olarak gerçekleşecek, bu yüzden burada bir şey yapmamıza gerek yok
-    } catch (err) {
-      setError("Google ile giriş yapılırken bir hata oluştu.");
+    if (error) {
+      setError(error.message);
       setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("Google giriş hatası:", err);
+    setError("Google ile giriş yapılırken bir hata oluştu.");
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700 flex flex-col relative overflow-hidden">
