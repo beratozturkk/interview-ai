@@ -75,7 +75,7 @@ function AuthCallbackContent() {
 
           if (error) {
             console.error("Code exchange hatası:", error.message);
-            router.replace("/login?error=auth_callback_failed");
+            setMessage(`Giriş hatası: ${error.message}`);
             return;
           }
 
