@@ -281,12 +281,6 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Yönetim Paneli</h1>
               <p className="text-gray-600">Tekrar hoş geldiniz! İşte mülakat analizleriniz.</p>
             </div>
-            <Button
-              onClick={() => router.push("/interview-admin")}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              Yeni Mülakat Başlat
-            </Button>
           </div>
 
           <Card className="p-6 bg-white mb-8">
