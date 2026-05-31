@@ -1,38 +1,40 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
+import { useEffect, Suspense, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hasHandledCallback = useRef(false);
+  const [message, setMessage] = useState("Giriş doğrulanıyor...");
 
   useEffect(() => {
-    const checkUserAndRedirect = async (user: any) => {
-      if (!user) return;
+    if (hasHandledCallback.current) return;
+    hasHandledCallback.current = true;
 
-      // Kullanıcının admin olup olmadığını kontrol et
+    const checkUserAndRedirect = async (user: any) => {
+      if (!user) {
+        router.replace("/login?error=no_user");
+        return;
+      }
+
       const userEmail = user.email?.toLowerCase() ?? "";
-      const DEFAULT_ADMIN_EMAILS = ["berattozturk6@gmail.com"];
-      const rawEnvAdmins = process.env.NEXT_PUBLIC_ADMIN_EMAILS;
-      const ADMIN_EMAILS = (
-        rawEnvAdmins && rawEnvAdmins.trim().length > 0
-          ? rawEnvAdmins.split(",")
-          : DEFAULT_ADMIN_EMAILS
-      )
-        .map((item) => item.trim().toLowerCase())
-        .filter(Boolean);
+
+      const ADMIN_EMAILS = ["berattozturk6@gmail.com"];
 
       const metadataRole =
         typeof user.user_metadata?.role === "string"
           ? user.user_metadata.role.toLowerCase()
           : undefined;
+
       const appMetadataRoles = Array.isArray(user.app_metadata?.roles)
         ? user.app_metadata.roles.map((role: string) => role.toLowerCase())
         : [];
 
       let dbAdminMatch = false;
+
       try {
         const { data: adminRecord, error: adminError } = await supabase
           .from("admins")
@@ -55,87 +57,79 @@ function AuthCallbackContent() {
         appMetadataRoles.includes("admin") ||
         dbAdminMatch;
 
-      // Kullanıcı tipine göre yönlendir
       const targetPath = isAdminUser ? "/dashboard" : "/candidate-dashboard";
+
       router.replace(targetPath);
     };
 
-    // Auth state değişikliklerini dinle
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        await checkUserAndRedirect(session.user);
-      } else if (event === "SIGNED_OUT") {
-        router.replace("/login");
-      } else if (event === "TOKEN_REFRESHED" && session?.user) {
-        // Token yenilendiğinde de kontrol et
-        await checkUserAndRedirect(session.user);
-      }
-    });
+    const handleAuthCallback = async () => {
+      try {
+        const code = searchParams.get("code");
 
-    // Mevcut session'ı kontrol et (sayfa yenilendiğinde veya direkt erişildiğinde)
-   const handleAuthCallback = async () => {
-      const code = searchParams.get("code");
+        if (code) {
+          setMessage("Oturum oluşturuluyor...");
 
-      if (code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(
+            code
+          );
+
+          if (error) {
+            console.error("Code exchange hatası:", error.message);
+            router.replace("/login?error=auth_callback_failed");
+            return;
+          }
+
+          if (data.session?.user) {
+            await checkUserAndRedirect(data.session.user);
+            return;
+          }
+        }
+
+        setMessage("Oturum kontrol ediliyor...");
+
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
         if (error) {
-          console.error("Code exchange hatası:", error.message);
-          router.replace("/login?error=auth_callback_failed");
+          console.error("Session kontrolü hatası:", error.message);
+          router.replace("/login?error=auth_failed");
           return;
         }
 
-        if (data.session?.user) {
-          await checkUserAndRedirect(data.session.user);
+        if (session?.user) {
+          await checkUserAndRedirect(session.user);
           return;
         }
+
+        router.replace("/login?error=no_session");
+      } catch (error) {
+        console.error("Callback genel hata:", error);
+        router.replace("/login?error=callback_unexpected_error");
       }
-
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
-
-      if (error) {
-        console.error("Session kontrolü hatası:", error.message);
-        router.replace("/login?error=auth_failed");
-        return;
-      }
-
-      if (session?.user) {
-        await checkUserAndRedirect(session.user);
-        return;
-      }
-
-      router.replace("/login");
     };
 
     handleAuthCallback();
-
-    // Cleanup: subscription'ı temizle
-    return () => {
-      subscription.unsubscribe();
-    };
   }, [router, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700">
-      <div className="text-white text-lg">Giriş doğrulanıyor...</div>
+      <div className="text-white text-lg">{message}</div>
     </div>
   );
 }
 
 export default function AuthCallback() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700">
-        <div className="text-white text-lg">Giriş doğrulanıyor...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700">
+          <div className="text-white text-lg">Giriş doğrulanıyor...</div>
+        </div>
+      }
+    >
       <AuthCallbackContent />
     </Suspense>
   );
 }
-
