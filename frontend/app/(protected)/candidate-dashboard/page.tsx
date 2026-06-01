@@ -102,7 +102,7 @@ export default function CandidateDashboardPage() {
           setUpcomingInterviews((prev) => {
             const exists = prev.some((item) => item.id === updated.id);
 
-            if (updated.status === "completed" || updated.status === "cancelled") {
+            if (updated.status === "completed" || updated.status === "canceled") {
               return prev.filter((item) => item.id !== updated.id);
             }
 
@@ -113,7 +113,7 @@ export default function CandidateDashboardPage() {
             return [updated, ...prev];
           });
 
-          if (updated.status === "completed" || updated.status === "cancelled") {
+          if (updated.status === "completed" || updated.status === "canceled") {
             setPastInterviews((prev) => {
               const exists = prev.some((item) => item.id === updated.id);
               if (exists) {
