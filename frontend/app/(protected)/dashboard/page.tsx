@@ -48,8 +48,8 @@ function ReportList({ title, items }: { title: string; items: string[] }) {
 
   return (
     <div>
-      <h4 className="text-sm font-semibold text-gray-900 mb-2">{title}</h4>
-      <ul className="space-y-1 text-sm text-gray-700 list-disc pl-5">
+      <h4 className="text-sm font-semibold text-slate-950 mb-2">{title}</h4>
+      <ul className="space-y-1 text-sm text-slate-700 list-disc pl-5">
         {items.map((item, index) => (
           <li key={`${title}-${index}`}>{item}</li>
         ))}
@@ -150,7 +150,7 @@ export default function DashboardPage() {
       {
         title: "Toplam Mülakat",
         value: metrics.totalInterviews.toString(),
-        accent: "text-purple-600",
+        accent: "text-violet-600",
         icon: (
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -160,7 +160,7 @@ export default function DashboardPage() {
       {
         title: "Ortalama Aday Skoru",
         value: metrics.avgScore,
-        accent: "text-purple-600",
+        accent: "text-violet-600",
         icon: (
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -180,7 +180,7 @@ export default function DashboardPage() {
       {
         title: "Tamamlanan Raporlar",
         value: metrics.completedReports.toString(),
-        accent: "text-purple-600",
+        accent: "text-violet-600",
         icon: (
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -289,7 +289,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-lg">Yükleniyor...</div>
       </div>
     );
@@ -298,15 +298,15 @@ export default function DashboardPage() {
   const chartMaxValue = Math.max(...graphData, 1);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen">
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-purple-600">AI Mülakat</h1>
+    <div className="min-h-screen bg-slate-50 flex text-slate-900">
+      <aside className="w-64 bg-[#070b1a] text-slate-300 border-r border-white/10 flex flex-col sticky top-0 h-screen shadow-2xl shadow-slate-950/20">
+        <div className="p-6 border-b border-white/10">
+          <h1 className="text-2xl font-bold text-white">AI Mülakat</h1>
         </div>
 
         <nav className="flex-1 p-4 flex flex-col">
           <div className="space-y-2 flex-1 overflow-y-auto">
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-purple-50 text-purple-600 font-medium">
+            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-medium shadow-lg shadow-violet-950/30">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
               </svg>
@@ -314,7 +314,7 @@ export default function DashboardPage() {
             </a>
             <button
               onClick={() => router.push("/dashboard/settings")}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -325,7 +325,7 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={handleLogout}
-            className="mt-auto flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 w-full border-t border-gray-200 pt-4"
+            className="mt-auto flex items-center gap-3 px-4 py-3 rounded-xl text-red-300 hover:bg-red-500/10 hover:text-red-200 w-full border-t border-white/10 pt-4"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -335,20 +335,20 @@ export default function DashboardPage() {
         </nav>
       </aside>
 
-      <main className="flex-1 h-screen overflow-y-auto">
-        <div className="p-8">
+      <main className="flex-1 h-screen overflow-y-auto bg-slate-50">
+        <div className="p-8 lg:p-10">
           <div className="flex justify-between items-start mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Yönetim Paneli</h1>
-              <p className="text-gray-600">Tekrar hoş geldiniz! İşte mülakat analizleriniz.</p>
+              <h1 className="text-3xl font-bold text-slate-950 mb-2">Yönetim Paneli</h1>
+              <p className="text-slate-500">Tekrar hoş geldiniz! İşte mülakat analizleriniz.</p>
             </div>
           </div>
 
-          <Card className="p-6 bg-white mb-8">
+          <Card className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm mb-8 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Mülakat Planla</h2>
-                <p className="text-sm text-gray-600">Adaylar için yeni mülakat tarihi oluşturun.</p>
+                <h2 className="text-xl font-semibold text-slate-950">Mülakat Planla</h2>
+                <p className="text-sm text-slate-500">Adaylar için yeni mülakat tarihi oluşturun.</p>
               </div>
               {formSuccess && <span className="text-sm text-green-600">{formSuccess}</span>}
             </div>
@@ -357,11 +357,11 @@ export default function DashboardPage() {
 
             <form onSubmit={handleScheduleSubmit} className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-1">
-                <label className="text-xs text-gray-500">Aday</label>
+                <label className="text-xs text-slate-500">Aday</label>
                 <select
                   value={scheduleForm.candidateId}
                   onChange={(event) => handleScheduleChange("candidateId", event.target.value)}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
                   disabled={dataLoading}
                 >
                   <option value="">Aday seçin</option>
@@ -378,26 +378,26 @@ export default function DashboardPage() {
                 )}
               </div>
               <div className="md:col-span-1">
-                <label className="text-xs text-gray-500">Tarih</label>
+                <label className="text-xs text-slate-500">Tarih</label>
                 <input
                   type="datetime-local"
                   value={scheduleForm.scheduledAt}
                   onChange={(event) => handleScheduleChange("scheduledAt", event.target.value)}
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="text-xs text-gray-500">Başlık</label>
+                <label className="text-xs text-slate-500">Başlık</label>
                 <input
                   type="text"
                   value={scheduleForm.title}
                   onChange={(event) => handleScheduleChange("title", event.target.value)}
                   placeholder="Teknik Mülakat"
-                  className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
                 />
               </div>
               <div className="md:col-span-3 flex justify-end">
-                <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Button type="submit" className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-95 text-white shadow-lg shadow-violet-500/20">
                   Mülakat Planla
                 </Button>
               </div>
@@ -406,32 +406,32 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {metricCards.map((metric, index) => (
-              <Card key={index} className="p-6 bg-white">
+              <Card key={index} className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-purple-50 rounded-lg text-purple-600">{metric.icon}</div>
+                  <div className="p-3 bg-violet-50 rounded-lg text-violet-600">{metric.icon}</div>
                 </div>
-                <h3 className="text-sm text-gray-600 mb-1">{metric.title}</h3>
+                <h3 className="text-sm text-slate-500 mb-1">{metric.title}</h3>
                 <p className={`text-2xl font-bold ${metric.accent}`}>{metric.value}</p>
               </Card>
             ))}
           </div>
 
-          <Card className="p-6 bg-white mb-8 overflow-hidden">
+          <Card className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm mb-8 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-1">Haftalık Mülakat Aktivitesi</h2>
-              <p className="text-sm text-gray-600">Son 7 gün</p>
+              <h2 className="text-xl font-semibold text-slate-950 mb-1">Haftalık Mülakat Aktivitesi</h2>
+              <p className="text-sm text-slate-500">Son 7 gün</p>
             </div>
 
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <div className="rounded-xl border border-gray-100 bg-slate-50 p-4">
               <div className="h-48 flex items-end justify-between gap-3">
                 {graphData.map((value, index) => {
                   const height = value === 0 ? 4 : Math.max((value / chartMaxValue) * 100, 12);
                   return (
                     <div key={DAYS[index]} className="h-full flex-1 flex flex-col justify-end items-center gap-2">
-                      <div className="text-xs font-medium text-gray-600">{value}</div>
+                      <div className="text-xs font-medium text-slate-500">{value}</div>
                       <div className="w-full max-w-[48px] h-full flex items-end">
                         <div
-                          className="w-full rounded-t-lg bg-purple-500 transition-all"
+                          className="w-full rounded-t-lg bg-violet-500 transition-all"
                           style={{ height: `${height}%` }}
                         />
                       </div>
@@ -439,7 +439,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-              <div className="grid grid-cols-7 gap-3 mt-3 text-xs text-gray-600 text-center">
+              <div className="grid grid-cols-7 gap-3 mt-3 text-xs text-slate-500 text-center">
                 {DAYS.map((day) => (
                   <span key={day}>{day}</span>
                 ))}
@@ -447,22 +447,22 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          <Card className="p-6 bg-white mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Planlanan Mülakatlar</h2>
+          <Card className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm mb-8 rounded-2xl border border-slate-200 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-950 mb-6">Planlanan Mülakatlar</h2>
             {dataLoading ? (
-              <p className="text-sm text-gray-500">Yükleniyor...</p>
+              <p className="text-sm text-slate-500">Yükleniyor...</p>
             ) : upcomingInterviews.length === 0 ? (
-              <p className="text-sm text-gray-500">Planlı mülakat bulunmuyor.</p>
+              <p className="text-sm text-slate-500">Planlı mülakat bulunmuyor.</p>
             ) : (
               <div className="space-y-3">
                 {upcomingInterviews.slice(0, 5).map((interview) => (
                   <div
                     key={interview.id}
-                    className="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3"
+                    className="flex items-center justify-between border border-slate-200 rounded-xl px-4 py-3"
                   >
                     <div>
-                      <p className="font-semibold text-gray-900">{interview.title || "Mülakat"}</p>
-                      <p className="text-sm text-gray-600">{formatDateTime(interview.scheduled_at)}</p>
+                      <p className="font-semibold text-slate-950">{interview.title || "Mülakat"}</p>
+                      <p className="text-sm text-slate-500">{formatDateTime(interview.scheduled_at)}</p>
                     </div>
                     <Button
                       onClick={async () => {
@@ -471,7 +471,7 @@ export default function DashboardPage() {
                         }
                         router.push(`/interview-admin?interview_id=${interview.id}`);
                       }}
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-95 text-white shadow-lg shadow-violet-500/20"
                     >
                       {interview.status === "in_progress" ? "Toplantıya Git" : "Toplantıyı Başlat"}
                     </Button>
@@ -481,13 +481,13 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          <Card className="p-6 bg-white">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Son Seanslar</h2>
+          <Card className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-950 mb-6">Son Seanslar</h2>
 
             {dataLoading ? (
-              <p className="text-sm text-gray-500">Yükleniyor...</p>
+              <p className="text-sm text-slate-500">Yükleniyor...</p>
             ) : recentSessions.length === 0 ? (
-              <p className="text-sm text-gray-500">Henüz tamamlanmış seans yok.</p>
+              <p className="text-sm text-slate-500">Henüz tamamlanmış seans yok.</p>
             ) : (
               <div className="space-y-4">
                 {recentSessions.map((session) => {
@@ -497,16 +497,16 @@ export default function DashboardPage() {
                   const isExpanded = expandedSessionId === session.id;
 
                   return (
-                    <div key={session.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                      <div className="flex items-center justify-between p-4 hover:bg-gray-50">
+                    <div key={session.id} className="border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="flex items-center justify-between p-4 hover:bg-slate-50">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">{session.name}</h3>
-                          <p className="text-sm text-gray-600">{session.date}</p>
+                          <h3 className="font-semibold text-slate-950 mb-1">{session.name}</h3>
+                          <p className="text-sm text-slate-500">{session.date}</p>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <p className="font-semibold text-gray-900">{session.scoreText}</p>
-                            <p className="text-xs text-gray-600">Puan</p>
+                            <p className="font-semibold text-slate-950">{session.scoreText}</p>
+                            <p className="text-xs text-slate-500">Puan</p>
                           </div>
                           <span
                             className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -523,7 +523,7 @@ export default function DashboardPage() {
                             type="button"
                             variant="outline"
                             onClick={() => handleToggleDetails(session.id)}
-                            className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                            className="border-violet-200 text-violet-700 hover:bg-violet-50"
                           >
                             {isExpanded ? "Kapat" : "Detayları Gör"}
                           </Button>
@@ -531,22 +531,22 @@ export default function DashboardPage() {
                       </div>
 
                       {isExpanded && (
-                        <div className="border-t border-gray-200 bg-gray-50 p-5 space-y-5">
+                        <div className="border-t border-slate-200 bg-slate-50 p-5 space-y-5">
                           {report ? (
                             <div className="grid gap-4 lg:grid-cols-3">
-                              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                                <p className="text-sm text-gray-500">Genel Skor</p>
-                                <p className="text-3xl font-bold text-purple-600 mt-1">
+                              <div className="bg-white border border-slate-200 rounded-xl p-4">
+                                <p className="text-sm text-slate-500">Genel Skor</p>
+                                <p className="text-3xl font-bold text-violet-600 mt-1">
                                   {report.overall_score ?? "-"}
-                                  <span className="text-sm text-gray-500 font-normal"> / 100</span>
+                                  <span className="text-sm text-slate-500 font-normal"> / 100</span>
                                 </p>
-                                <p className="text-sm text-gray-700 mt-3">
+                                <p className="text-sm text-slate-700 mt-3">
                                   {getReportText(report, "overall_comment") || "Rapor yorumu bulunamadı."}
                                 </p>
                               </div>
 
-                              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                                <p className="text-sm text-gray-500 mb-3">Duygu Analizi</p>
+                              <div className="bg-white border border-slate-200 rounded-xl p-4">
+                                <p className="text-sm text-slate-500 mb-3">Duygu Analizi</p>
                                 <div className="space-y-2 text-sm">
                                   <div className="flex justify-between">
                                     <span>Pozitif</span>
@@ -563,56 +563,56 @@ export default function DashboardPage() {
                                 </div>
                               </div>
 
-                              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                              <div className="bg-white border border-slate-200 rounded-xl p-4">
                                 <ReportList title="Ana Konular" items={getReportArray(report, "key_topics")} />
                                 {!getReportArray(report, "key_topics").length && (
-                                  <p className="text-sm text-gray-500">Ana konu bulunamadı.</p>
+                                  <p className="text-sm text-slate-500">Ana konu bulunamadı.</p>
                                 )}
                               </div>
                             </div>
                           ) : (
-                            <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-500">
+                            <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
                               Bu mülakat için kayıtlı rapor bulunamadı.
                             </div>
                           )}
 
                           {report && (
                             <div className="grid gap-4 md:grid-cols-2">
-                              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                              <div className="bg-white border border-slate-200 rounded-xl p-4">
                                 <ReportList title="Güçlü Yönler" items={getReportArray(report, "strengths")} />
                                 {!getReportArray(report, "strengths").length && (
-                                  <p className="text-sm text-gray-500">Güçlü yön bilgisi bulunamadı.</p>
+                                  <p className="text-sm text-slate-500">Güçlü yön bilgisi bulunamadı.</p>
                                 )}
                               </div>
-                              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                              <div className="bg-white border border-slate-200 rounded-xl p-4">
                                 <ReportList title="Gelişim Alanları" items={getReportArray(report, "improvements")} />
                                 {!getReportArray(report, "improvements").length && (
-                                  <p className="text-sm text-gray-500">Gelişim alanı bilgisi bulunamadı.</p>
+                                  <p className="text-sm text-slate-500">Gelişim alanı bilgisi bulunamadı.</p>
                                 )}
                               </div>
                             </div>
                           )}
 
-                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <div className="bg-white border border-slate-200 rounded-xl p-4">
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-sm font-semibold text-gray-900">Transkript</h4>
+                              <h4 className="text-sm font-semibold text-slate-950">Transkript</h4>
                               {detailLoadingId === session.id && (
-                                <span className="text-xs text-gray-500">Yükleniyor...</span>
+                                <span className="text-xs text-slate-500">Yükleniyor...</span>
                               )}
                             </div>
 
                             {detailLoadingId === session.id ? (
-                              <p className="text-sm text-gray-500">Transkript yükleniyor...</p>
+                              <p className="text-sm text-slate-500">Transkript yükleniyor...</p>
                             ) : transcriptSegments.length === 0 ? (
-                              <p className="text-sm text-gray-500">Kayıtlı transkript bulunamadı.</p>
+                              <p className="text-sm text-slate-500">Kayıtlı transkript bulunamadı.</p>
                             ) : (
                               <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
                                 {transcriptSegments.map((segment) => (
                                   <div key={segment.id} className="border-b border-gray-100 pb-2 last:border-b-0">
-                                    <p className="text-xs font-semibold text-purple-600">
+                                    <p className="text-xs font-semibold text-violet-600">
                                       {segment.speaker_role || "Konuşmacı"}
                                     </p>
-                                    <p className="text-sm text-gray-700 mt-1">{segment.content}</p>
+                                    <p className="text-sm text-slate-700 mt-1">{segment.content}</p>
                                   </div>
                                 ))}
                               </div>

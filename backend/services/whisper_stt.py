@@ -75,6 +75,12 @@ def _transcribe_with_whisper_chunk_sync(
             model=DEFAULT_WHISPER_MODEL,
             file=audio_file,
             language=language,
+            prompt=(
+                "Bu ses bir Türkçe iş mülakatı kaydıdır. "
+                "Yalnızca adayın gerçekten söylediği sözleri yaz. "
+                "Ses yoksa, anlaşılmıyorsa veya arka plan gürültüsü varsa boş metin döndür. "
+                "YouTube, altyazı, abone ol, beğen, yorum yap, subscribe gibi ifadeler üretme."
+            ),
         )
 
         # New OpenAI Python SDK returns .text on the result

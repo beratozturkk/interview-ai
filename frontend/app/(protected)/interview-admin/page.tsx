@@ -118,18 +118,61 @@ export default function InterviewAdminPage() {
     const newItems = transcriptItems.slice(lastSavedIndexRef.current);
     lastSavedIndexRef.current = transcriptItems.length;
 
-    const payload = newItems.map((item) => ({
-      role: item.role,
-      text: item.text,
-    }));
+    const payload = newItems
+      .filter((item) => !isTranscriptNoise(item.text))
+      .map((item) => ({
+        role: item.role,
+        text: item.text,
+      }));
 
-    insertTranscriptSegments(interviewId, sessionId, payload);
+    if (payload.length > 0) {
+      insertTranscriptSegments(interviewId, sessionId, payload);
+    }
   }, [interviewId, sessionId, transcriptItems]);
+const normalizeTranscriptText = (text: string) => {
+  return text
+    .toLowerCase()
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
 
+  const isTranscriptNoise = (text: string) => {
+    const normalized = normalizeTranscriptText(text);
+
+    const noisePhrases = [
+      "abone olmayi",
+      "abone olun",
+      "abone ol",
+      "begeni butonuna",
+      "begen butonuna",
+      "yorum yapmayi",
+      "yorum yapin",
+      "altyazi",
+      "altyazi m k",
+      "dont forget subscribe",
+      "do not forget subscribe",
+      "like and subscribe",
+      "subscribe to the channel",
+      "thanks for watching",
+      "subtitles by",
+      "captions by",
+      "amara org",
+  ];
+
+  return noisePhrases.some((phrase) => normalized.includes(phrase));
+  };
   const handleInterviewAction = () => {
     // Mülakatı bitir ve rapor sayfasına yönlendir
     const candidateTranscript = transcriptItems
       .filter((item) => item.role === "Aday")
+      .filter((item) => !isTranscriptNoise(item.text))
       .map((item) => item.text)
       .join("\n");
     

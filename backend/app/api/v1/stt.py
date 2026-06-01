@@ -107,13 +107,50 @@ def _looks_like_webm(audio_bytes: bytes) -> bool:
     return len(audio_bytes) >= 4 and audio_bytes[:4] == b"\x1a\x45\xdf\xa3"
 
 
+def _normalize_noise_text(text: str) -> str:
+    text = _clean_spaces(text).lower()
+    replacements = {
+        "ı": "i",
+        "ğ": "g",
+        "ü": "u",
+        "ş": "s",
+        "ö": "o",
+        "ç": "c",
+        "İ": "i",
+    }
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+
+    text = re.sub(r"[^\w\s]", " ", text)
+    return _clean_spaces(text)
+
+
+NOISE_PHRASES = [
+    "abone olmayi",
+    "abone olun",
+    "abone ol",
+    "begeni butonuna",
+    "begen butonuna",
+    "yorum yapmayi",
+    "yorum yapin",
+    "altyazi",
+    "altyazi m k",
+    "dont forget subscribe",
+    "don't forget subscribe",
+    "do not forget subscribe",
+    "like and subscribe",
+    "subscribe to the channel",
+    "thanks for watching",
+    "subtitles by",
+    "captions by",
+    "amara org",
+]
+
+
 def _is_noise_text(text: str) -> bool:
     cleaned = _clean_spaces(text)
-    if not cleaned:
-        return True
 
-    lowered = cleaned.lower()
-    if any(phrase in lowered for phrase in NOISE_PHRASES):
+    if not cleaned:
         return True
 
     if len(cleaned) < MIN_TEXT_CHARS:
@@ -127,6 +164,11 @@ def _is_noise_text(text: str) -> bool:
 
     alnum_count = sum(ch.isalnum() for ch in cleaned)
     if alnum_count < 2:
+        return True
+
+    normalized = _normalize_noise_text(cleaned)
+
+    if any(phrase in normalized for phrase in NOISE_PHRASES):
         return True
 
     return False

@@ -74,3 +74,54 @@
   animation: shine 3s infinite;
 }
 
+
+
+@layer components {
+  .app-shell-bg {
+    @apply bg-slate-50 text-slate-950;
+  }
+
+  .app-sidebar {
+    @apply bg-[#070b1a] text-slate-300 border-r border-white/10 shadow-2xl shadow-slate-950/10;
+  }
+
+  .app-sidebar-logo {
+    @apply text-white font-bold tracking-tight;
+  }
+
+  .app-sidebar-link-active {
+    @apply bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-950/30;
+  }
+
+  .app-sidebar-link {
+    @apply text-slate-300 hover:bg-white/10 hover:text-white transition-colors;
+  }
+
+  .app-card {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/70;
+  }
+
+  .app-card-soft {
+    @apply rounded-2xl border border-violet-100/70 bg-white/90 shadow-sm shadow-violet-100/80;
+  }
+
+  .app-input {
+    @apply rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100;
+  }
+
+  .app-button-primary {
+    @apply rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20 hover:opacity-95;
+  }
+
+  .app-button-secondary {
+    @apply rounded-xl border border-slate-200 bg-white text-slate-800 hover:bg-slate-50;
+  }
+
+  .app-badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold;
+  }
+
+  .app-page-gradient {
+    @apply min-h-screen bg-[radial-gradient(circle_at_top_left,#ede9fe,transparent_30%),linear-gradient(135deg,#f8fafc,#f5f3ff)];
+  }
+}
