@@ -41,7 +41,7 @@ const getStatusLabel = (status?: string | null) => {
       return "Devam ediyor";
     case "completed":
       return "Tamamlandı";
-    case "cancelled":
+    case "canceled":
       return "İptal edildi";
     default:
       return status || "-";
