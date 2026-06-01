@@ -11,12 +11,52 @@ import {
   fetchInterviewReports,
   fetchPastInterviews,
   fetchProfiles,
+  fetchTranscriptSegments,
   fetchUpcomingInterviews,
   InterviewRecord,
   InterviewReportRecord,
   ProfileRecord,
+  TranscriptSegmentRecord,
   updateInterviewStatus,
 } from "@/lib/db";
+
+const DAYS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "Tarih belirlenmedi";
+  return new Date(value).toLocaleString("tr-TR", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getReportArray = (report: InterviewReportRecord | undefined, key: string): string[] => {
+  const value = (report as any)?.[key];
+  return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
+};
+
+const getReportText = (report: InterviewReportRecord | undefined, key: string): string => {
+  const value = (report as any)?.[key];
+  return typeof value === "string" ? value : "";
+};
+
+function ReportList({ title, items }: { title: string; items: string[] }) {
+  if (!items.length) return null;
+
+  return (
+    <div>
+      <h4 className="text-sm font-semibold text-gray-900 mb-2">{title}</h4>
+      <ul className="space-y-1 text-sm text-gray-700 list-disc pl-5">
+        {items.map((item, index) => (
+          <li key={`${title}-${index}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -25,6 +65,9 @@ export default function DashboardPage() {
   const [pastInterviews, setPastInterviews] = useState<InterviewRecord[]>([]);
   const [reportMap, setReportMap] = useState<Record<string, InterviewReportRecord>>({});
   const [candidateProfiles, setCandidateProfiles] = useState<ProfileRecord[]>([]);
+  const [transcriptMap, setTranscriptMap] = useState<Record<string, TranscriptSegmentRecord[]>>({});
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [scheduleForm, setScheduleForm] = useState({
     candidateId: "",
@@ -39,40 +82,46 @@ export default function DashboardPage() {
     router.push("/login");
   };
 
+  const loadDashboardData = async () => {
+    if (!user) return;
+
+    setDataLoading(true);
+
+    const [profiles, upcoming, past] = await Promise.all([
+      fetchProfiles(),
+      fetchUpcomingInterviews(user.id, true),
+      fetchPastInterviews(user.id, true),
+    ]);
+
+    const reportList = await fetchInterviewReports(past.map((item) => item.id));
+    const nextReportMap: Record<string, InterviewReportRecord> = {};
+
+    reportList.forEach((report) => {
+      nextReportMap[report.interview_id] = report;
+    });
+
+    setCandidateProfiles(profiles.filter((profile) => profile.role !== "admin"));
+    setUpcomingInterviews(upcoming);
+    setPastInterviews(past);
+    setReportMap(nextReportMap);
+    setDataLoading(false);
+  };
+
   useEffect(() => {
     if (!user || loading) return;
-
-    const loadData = async () => {
-      setDataLoading(true);
-      const [profiles, upcoming, past] = await Promise.all([
-        fetchProfiles(),
-        fetchUpcomingInterviews(user.id, true),
-        fetchPastInterviews(user.id, true),
-      ]);
-
-      const reportList = await fetchInterviewReports(past.map((item) => item.id));
-      const nextReportMap: Record<string, InterviewReportRecord> = {};
-      reportList.forEach((report) => {
-        nextReportMap[report.interview_id] = report;
-      });
-
-      setCandidateProfiles(profiles.filter((profile) => profile.role !== "admin"));
-      setUpcomingInterviews(upcoming);
-      setPastInterviews(past);
-      setReportMap(nextReportMap);
-      setDataLoading(false);
-    };
-
-    loadData();
+    loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading]);
 
   const candidateEmailMap = useMemo(() => {
     const map: Record<string, string> = {};
+
     candidateProfiles.forEach((profile) => {
       if (profile.user_id && profile.email) {
         map[profile.user_id] = profile.email;
       }
     });
+
     return map;
   }, [candidateProfiles]);
 
@@ -85,7 +134,7 @@ export default function DashboardPage() {
       ? reportValues.reduce((sum, report) => sum + (report.overall_score ?? 0), 0) / reportValues.length
       : 0;
     const avgPositive = reportValues.length
-      ? reportValues.reduce((sum, report) => sum + (report.sentiment?.positive ?? 0), 0) / reportValues.length
+      ? reportValues.reduce((sum, report) => sum + ((report as any).sentiment?.positive ?? 0), 0) / reportValues.length
       : 0;
 
     return {
@@ -154,7 +203,7 @@ export default function DashboardPage() {
     setFormSuccess(null);
 
     if (!scheduleForm.candidateId || !scheduleForm.scheduledAt) {
-      setFormError("Lutfen aday ve tarih alanlarini doldurun.");
+      setFormError("Lütfen aday ve tarih alanlarını doldurun.");
       return;
     }
 
@@ -169,11 +218,11 @@ export default function DashboardPage() {
     });
 
     if (!created) {
-      setFormError("Mülakat olusturulamadi. Lutfen tekrar deneyin.");
+      setFormError("Mülakat oluşturulamadı. Lütfen tekrar deneyin.");
       return;
     }
 
-    setFormSuccess("Mülakat basariyla planlandi.");
+    setFormSuccess("Mülakat başarıyla planlandı.");
     setScheduleForm({
       candidateId: "",
       scheduledAt: "",
@@ -190,8 +239,10 @@ export default function DashboardPage() {
 
     pastInterviews.forEach((interview) => {
       if (!interview.scheduled_at) return;
+
       const date = new Date(interview.scheduled_at);
       const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+
       if (diffDays >= 0 && diffDays < 7) {
         values[6 - diffDays] += 1;
       }
@@ -209,12 +260,32 @@ export default function DashboardPage() {
         id: interview.id,
         name: candidateEmailMap[interview.candidate_id ?? ""] || "Aday",
         date: interview.scheduled_at ? new Date(interview.scheduled_at).toLocaleDateString("tr-TR") : "-",
-        score: score ? `${score}/100` : "-",
+        score,
+        scoreText: score ? `${score}/100` : "-",
         recommendation: score >= 80 ? "Güçlü Aday" : score >= 60 ? "İkinci Görüşme" : "Uygun Değil",
         status: score >= 80 ? "success" : score >= 60 ? "warning" : "error",
       };
     });
   }, [pastInterviews, reportMap, candidateEmailMap]);
+
+  const handleToggleDetails = async (interviewId: string) => {
+    if (expandedSessionId === interviewId) {
+      setExpandedSessionId(null);
+      return;
+    }
+
+    setExpandedSessionId(interviewId);
+
+    if (transcriptMap[interviewId]) return;
+
+    setDetailLoadingId(interviewId);
+    const segments = await fetchTranscriptSegments(interviewId, 100);
+    setTranscriptMap((prev) => ({
+      ...prev,
+      [interviewId]: [...segments].reverse(),
+    }));
+    setDetailLoadingId(null);
+  };
 
   if (loading) {
     return (
@@ -224,26 +295,18 @@ export default function DashboardPage() {
     );
   }
 
-  const maxValue = Math.max(...graphData, 1);
-  const graphHeight = 200;
-  const graphWidth = 100;
+  const chartMaxValue = Math.max(...graphData, 1);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen">
-        {/* Logo */}
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-purple-600">AI Mülakat</h1>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-4 flex flex-col">
           <div className="space-y-2 flex-1 overflow-y-auto">
-            <a
-              href="#"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-purple-50 text-purple-600 font-medium"
-            >
+            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-purple-50 text-purple-600 font-medium">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
               </svg>
@@ -272,10 +335,8 @@ export default function DashboardPage() {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 h-screen overflow-y-auto">
         <div className="p-8">
-          {/* Header */}
           <div className="flex justify-between items-start mb-8">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Yönetim Paneli</h1>
@@ -287,7 +348,7 @@ export default function DashboardPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Mülakat Planla</h2>
-                <p className="text-sm text-gray-600">Adaylar icin yeni mülakat tarihi olusturun.</p>
+                <p className="text-sm text-gray-600">Adaylar için yeni mülakat tarihi oluşturun.</p>
               </div>
               {formSuccess && <span className="text-sm text-green-600">{formSuccess}</span>}
             </div>
@@ -303,7 +364,7 @@ export default function DashboardPage() {
                   className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                   disabled={dataLoading}
                 >
-                  <option value="">Aday secin</option>
+                  <option value="">Aday seçin</option>
                   {candidateProfiles.map((profile) => (
                     <option key={profile.user_id} value={profile.user_id}>
                       {profile.email || profile.user_id}
@@ -326,7 +387,7 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="text-xs text-gray-500">Baslik</label>
+                <label className="text-xs text-gray-500">Başlık</label>
                 <input
                   type="text"
                   value={scheduleForm.title}
@@ -343,14 +404,11 @@ export default function DashboardPage() {
             </form>
           </Card>
 
-          {/* Metrics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {metricCards.map((metric, index) => (
               <Card key={index} className="p-6 bg-white">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-purple-50 rounded-lg text-purple-600">
-                    {metric.icon}
-                  </div>
+                  <div className="p-3 bg-purple-50 rounded-lg text-purple-600">{metric.icon}</div>
                 </div>
                 <h3 className="text-sm text-gray-600 mb-1">{metric.title}</h3>
                 <p className={`text-2xl font-bold ${metric.accent}`}>{metric.value}</p>
@@ -358,67 +416,32 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {/* Weekly Interview Activity Graph */}
-          <Card className="p-6 bg-white mb-8">
+          <Card className="p-6 bg-white mb-8 overflow-hidden">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-1">Haftalık Mülakat Aktivitesi</h2>
               <p className="text-sm text-gray-600">Son 7 gün</p>
             </div>
-            <div className="relative" style={{ height: `${graphHeight}px` }}>
-              <svg
-                width="100%"
-                height={graphHeight}
-                viewBox={`0 0 ${graphWidth} ${graphHeight}`}
-                preserveAspectRatio="none"
-                className="overflow-visible"
-              >
-                {/* Grid lines */}
-                {[0, 7, 14, 21, 28].map((value) => (
-                  <line
-                    key={value}
-                    x1="0"
-                    y1={graphHeight - (value / maxValue) * graphHeight}
-                    x2={graphWidth}
-                    y2={graphHeight - (value / maxValue) * graphHeight}
-                    stroke="#e5e7eb"
-                    strokeWidth="1"
-                  />
-                ))}
-                {/* Graph line */}
-                <polyline
-                  points={graphData
-                    .map(
-                      (value, index) =>
-                        `${(index / (graphData.length - 1)) * graphWidth},${graphHeight - (value / maxValue) * graphHeight}`
-                    )
-                    .join(" ")}
-                  fill="none"
-                  stroke="#9333ea"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {/* Data points */}
-                {graphData.map((value, index) => (
-                  <circle
-                    key={index}
-                    cx={(index / (graphData.length - 1)) * graphWidth}
-                    cy={graphHeight - (value / maxValue) * graphHeight}
-                    r="6"
-                    fill="#9333ea"
-                  />
-                ))}
-              </svg>
-              {/* X-axis labels */}
-              <div className="flex justify-between mt-2 text-xs text-gray-600">
-                {["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((day) => (
-                  <span key={day}>{day}</span>
-                ))}
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <div className="h-48 flex items-end justify-between gap-3">
+                {graphData.map((value, index) => {
+                  const height = value === 0 ? 4 : Math.max((value / chartMaxValue) * 100, 12);
+                  return (
+                    <div key={DAYS[index]} className="h-full flex-1 flex flex-col justify-end items-center gap-2">
+                      <div className="text-xs font-medium text-gray-600">{value}</div>
+                      <div className="w-full max-w-[48px] h-full flex items-end">
+                        <div
+                          className="w-full rounded-t-lg bg-purple-500 transition-all"
+                          style={{ height: `${height}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              {/* Y-axis labels */}
-              <div className="absolute left-0 top-0 flex flex-col justify-between h-full text-xs text-gray-600">
-                {[28, 21, 14, 7, 0].map((value) => (
-                  <span key={value}>{value}</span>
+              <div className="grid grid-cols-7 gap-3 mt-3 text-xs text-gray-600 text-center">
+                {DAYS.map((day) => (
+                  <span key={day}>{day}</span>
                 ))}
               </div>
             </div>
@@ -427,9 +450,9 @@ export default function DashboardPage() {
           <Card className="p-6 bg-white mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Planlanan Mülakatlar</h2>
             {dataLoading ? (
-              <p className="text-sm text-gray-500">Yukleniyor...</p>
+              <p className="text-sm text-gray-500">Yükleniyor...</p>
             ) : upcomingInterviews.length === 0 ? (
-              <p className="text-sm text-gray-500">Planli mülakat bulunmuyor.</p>
+              <p className="text-sm text-gray-500">Planlı mülakat bulunmuyor.</p>
             ) : (
               <div className="space-y-3">
                 {upcomingInterviews.slice(0, 5).map((interview) => (
@@ -439,11 +462,7 @@ export default function DashboardPage() {
                   >
                     <div>
                       <p className="font-semibold text-gray-900">{interview.title || "Mülakat"}</p>
-                      <p className="text-sm text-gray-600">
-                        {interview.scheduled_at
-                          ? new Date(interview.scheduled_at).toLocaleString("tr-TR")
-                          : "Tarih belirlenmedi"}
-                      </p>
+                      <p className="text-sm text-gray-600">{formatDateTime(interview.scheduled_at)}</p>
                     </div>
                     <Button
                       onClick={async () => {
@@ -462,39 +481,150 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          {/* Recent Sessions */}
           <Card className="p-6 bg-white">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Son Seanslar</h2>
-            <div className="space-y-4">
-              {recentSessions.map((session, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-                >
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">{session.name}</h3>
-                    <p className="text-sm text-gray-600">{session.date}</p>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">{session.score}</p>
-                      <p className="text-xs text-gray-600">Puan</p>
+
+            {dataLoading ? (
+              <p className="text-sm text-gray-500">Yükleniyor...</p>
+            ) : recentSessions.length === 0 ? (
+              <p className="text-sm text-gray-500">Henüz tamamlanmış seans yok.</p>
+            ) : (
+              <div className="space-y-4">
+                {recentSessions.map((session) => {
+                  const report = reportMap[session.id];
+                  const reportAny = report as any;
+                  const transcriptSegments = transcriptMap[session.id] || [];
+                  const isExpanded = expandedSessionId === session.id;
+
+                  return (
+                    <div key={session.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between p-4 hover:bg-gray-50">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 mb-1">{session.name}</h3>
+                          <p className="text-sm text-gray-600">{session.date}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900">{session.scoreText}</p>
+                            <p className="text-xs text-gray-600">Puan</p>
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              session.status === "success"
+                                ? "bg-green-100 text-green-800"
+                                : session.status === "warning"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {session.recommendation}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleToggleDetails(session.id)}
+                            className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                          >
+                            {isExpanded ? "Kapat" : "Detayları Gör"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-gray-200 bg-gray-50 p-5 space-y-5">
+                          {report ? (
+                            <div className="grid gap-4 lg:grid-cols-3">
+                              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                <p className="text-sm text-gray-500">Genel Skor</p>
+                                <p className="text-3xl font-bold text-purple-600 mt-1">
+                                  {report.overall_score ?? "-"}
+                                  <span className="text-sm text-gray-500 font-normal"> / 100</span>
+                                </p>
+                                <p className="text-sm text-gray-700 mt-3">
+                                  {getReportText(report, "overall_comment") || "Rapor yorumu bulunamadı."}
+                                </p>
+                              </div>
+
+                              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                <p className="text-sm text-gray-500 mb-3">Duygu Analizi</p>
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex justify-between">
+                                    <span>Pozitif</span>
+                                    <span className="font-semibold">{reportAny?.sentiment?.positive ?? 0}%</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Nötr</span>
+                                    <span className="font-semibold">{reportAny?.sentiment?.neutral ?? 0}%</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Negatif</span>
+                                    <span className="font-semibold">{reportAny?.sentiment?.negative ?? 0}%</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                <ReportList title="Ana Konular" items={getReportArray(report, "key_topics")} />
+                                {!getReportArray(report, "key_topics").length && (
+                                  <p className="text-sm text-gray-500">Ana konu bulunamadı.</p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-500">
+                              Bu mülakat için kayıtlı rapor bulunamadı.
+                            </div>
+                          )}
+
+                          {report && (
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                <ReportList title="Güçlü Yönler" items={getReportArray(report, "strengths")} />
+                                {!getReportArray(report, "strengths").length && (
+                                  <p className="text-sm text-gray-500">Güçlü yön bilgisi bulunamadı.</p>
+                                )}
+                              </div>
+                              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                <ReportList title="Gelişim Alanları" items={getReportArray(report, "improvements")} />
+                                {!getReportArray(report, "improvements").length && (
+                                  <p className="text-sm text-gray-500">Gelişim alanı bilgisi bulunamadı.</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-semibold text-gray-900">Transkript</h4>
+                              {detailLoadingId === session.id && (
+                                <span className="text-xs text-gray-500">Yükleniyor...</span>
+                              )}
+                            </div>
+
+                            {detailLoadingId === session.id ? (
+                              <p className="text-sm text-gray-500">Transkript yükleniyor...</p>
+                            ) : transcriptSegments.length === 0 ? (
+                              <p className="text-sm text-gray-500">Kayıtlı transkript bulunamadı.</p>
+                            ) : (
+                              <div className="space-y-3 max-h-72 overflow-y-auto pr-2">
+                                {transcriptSegments.map((segment) => (
+                                  <div key={segment.id} className="border-b border-gray-100 pb-2 last:border-b-0">
+                                    <p className="text-xs font-semibold text-purple-600">
+                                      {segment.speaker_role || "Konuşmacı"}
+                                    </p>
+                                    <p className="text-sm text-gray-700 mt-1">{segment.content}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        session.status === "success"
-                          ? "bg-green-100 text-green-800"
-                          : session.status === "warning"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {session.recommendation}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
         </div>
       </main>
