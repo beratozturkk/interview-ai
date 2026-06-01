@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,10 @@ function ResetPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Check if we have the hash from the email link
-    const hash = window.location.hash;
-    if (hash) {
-      // Supabase will automatically handle the hash and update the session
+    if (typeof window === "undefined") return;
+    if (window.location.hash) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!session) {
           setError("Geçersiz veya süresi dolmuş şifre sıfırlama linki.");
@@ -47,111 +44,66 @@ function ResetPasswordContent() {
     setLoading(true);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      });
-
+      const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
         setError(updateError.message);
-        setLoading(false);
         return;
       }
 
       setSuccess(true);
-      setLoading(false);
-
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        router.push("/login");
-      }, 2000);
-    } catch (err) {
+      setTimeout(() => router.push("/login"), 1800);
+    } catch {
       setError("Bir hata oluştu. Lütfen tekrar deneyin.");
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700 flex flex-col relative overflow-hidden">
-      <header className="w-full px-6 md:px-12 py-6 flex items-center justify-between z-10">
-        <h1 className="text-xl md:text-2xl font-semibold text-white">AI Mülakat Asistanı</h1>
-        <div className="flex items-center gap-3">
-          <Link href="/login">
-            <Button variant="outline" className="bg-white text-purple-600 hover:bg-gray-100 border border-purple-300 rounded-lg px-4 md:px-6 py-2 text-sm md:text-base font-medium">
-              Giriş Yap
-            </Button>
-          </Link>
-        </div>
+    <div className="min-h-screen bg-slate-50">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-8">
+        <Link href="/" className="flex items-center gap-3 font-black text-slate-950">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-500/20">✦</span>
+          AI Mülakat Asistanı
+        </Link>
+        <Link href="/login" className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-100">
+          Giriş Yap
+        </Link>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-6 md:px-12 lg:px-16 py-8 md:py-12 gap-8 md:gap-12 relative z-10">
-        <div className="flex-1 flex flex-col items-start justify-center text-white space-y-6 md:space-y-8 max-w-2xl">
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-white">
-            Yeni Şifre Belirle
-          </h2>
-          
-          <p className="text-lg md:text-xl text-white/95 leading-relaxed">
-            Yeni şifrenizi belirleyin
-          </p>
+      <main className="flex min-h-[calc(100vh-112px)] items-center justify-center px-6 pb-14">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/80">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">🔐</div>
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-violet-600">Yeni Şifre</p>
+            <h1 className="mt-3 text-3xl font-black text-slate-950">Şifreni güncelle</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-500">Hesabın için yeni ve güvenli bir şifre belirle.</p>
+          </div>
 
-          {success ? (
-            <div className="w-full max-w-md space-y-4 mt-4">
-              <Alert className="bg-green-500/20 border-green-500/50 text-white">
-                <AlertDescription>
-                  Şifreniz başarıyla güncellendi! Giriş sayfasına yönlendiriliyorsunuz...
-                </AlertDescription>
-              </Alert>
-            </div>
-          ) : (
-            <form onSubmit={handleResetPassword} className="w-full max-w-md space-y-4 mt-4">
-              {error && (
-                <Alert variant="destructive" className="bg-red-500/20 border-red-500/50 text-white">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="space-y-2">
-                <Input
-                  type="password"
-                  placeholder="Yeni şifreniz"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white/20 focus:border-white/40 h-12 rounded-lg backdrop-blur-sm"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Input
-                  type="password"
-                  placeholder="Yeni şifrenizi tekrar girin"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white/20 focus:border-white/40 h-12 rounded-lg backdrop-blur-sm"
-                />
-              </div>
-
-              <div className="flex flex-col gap-3 pt-2">
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-white text-purple-600 hover:bg-gray-100 border border-purple-300 rounded-lg px-6 py-3 text-base font-medium w-full"
-                >
-                  {loading ? "Güncelleniyor..." : "Şifreyi Güncelle"}
-                </Button>
-                <Link href="/login">
-                  <Button
-                    type="button"
-                    className="bg-transparent border-2 border-white/40 text-white hover:bg-white/10 rounded-lg px-6 py-3 text-base font-medium w-full"
-                  >
-                    Geri Dön
-                  </Button>
-                </Link>
-              </div>
-            </form>
+          {error && (
+            <Alert variant="destructive" className="mb-5">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
+          {success && (
+            <Alert className="mb-5 border-emerald-200 bg-emerald-50 text-emerald-800">
+              <AlertDescription>Şifre başarıyla güncellendi. Giriş sayfasına yönlendiriliyorsunuz.</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleResetPassword} className="space-y-5">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">Yeni şifre</label>
+              <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="En az 6 karakter" className="h-12 rounded-2xl border-slate-200 bg-slate-50" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">Yeni şifre tekrar</label>
+              <Input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" required placeholder="Şifreni tekrar gir" className="h-12 rounded-2xl border-slate-200 bg-slate-50" />
+            </div>
+            <Button type="submit" disabled={loading || success} className="h-12 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20 hover:opacity-95">
+              {loading ? "Güncelleniyor..." : "Şifreyi Güncelle"}
+            </Button>
+          </form>
         </div>
       </main>
     </div>
@@ -160,13 +112,8 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700">
-        <div className="text-white text-lg">Yükleniyor...</div>
-      </div>
-    }>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">Yükleniyor...</div>}>
       <ResetPasswordContent />
     </Suspense>
   );
 }
-

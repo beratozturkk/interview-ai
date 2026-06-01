@@ -147,6 +147,59 @@ NOISE_PHRASES = [
 ]
 
 
+def _normalize_noise_text(text: str) -> str:
+    text = _clean_spaces(text).lower()
+
+    replacements = {
+        "ı": "i",
+        "ğ": "g",
+        "ü": "u",
+        "ş": "s",
+        "ö": "o",
+        "ç": "c",
+        "İ": "i",
+    }
+
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+
+    text = re.sub(r"[^\w\s]", " ", text)
+    return _clean_spaces(text)
+
+
+NOISE_PHRASES = [
+    # Turkish YouTube/caption hallucinations
+    "abone olmayi",
+    "abone olun",
+    "abone ol",
+    "begeni butonuna",
+    "begen butonuna",
+    "yorum yapmayi",
+    "yorum yapin",
+    "izlediginiz icin tesekkur ederim",
+    "izlediginiz icin tesekkurler",
+    "beni izlediginiz icin tesekkur ederim",
+    "kanalima abone",
+    "altyazi",
+    "altyazi m k",
+    "altyazilar",
+    "ceviri",
+    "seslendiren",
+
+    # English YouTube/caption hallucinations
+    "dont forget subscribe",
+    "do not forget subscribe",
+    "don't forget subscribe",
+    "like and subscribe",
+    "subscribe to the channel",
+    "thanks for watching",
+    "thank you for watching",
+    "subtitles by",
+    "captions by",
+    "amara org",
+]
+
+
 def _is_noise_text(text: str) -> bool:
     cleaned = _clean_spaces(text)
 

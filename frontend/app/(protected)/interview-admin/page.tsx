@@ -164,6 +164,14 @@ const normalizeTranscriptText = (text: string) => {
       "subtitles by",
       "captions by",
       "amara org",
+      "izlediginiz icin tesekkur ederim",
+      "izlediginiz icin tesekkurler",
+      "beni izlediginiz icin tesekkur ederim",
+      "kanalima abone",
+      "altyazilar",
+      "ceviri",
+      "seslendiren",
+      "thank you for watching",
   ];
 
   return noisePhrases.some((phrase) => normalized.includes(phrase));

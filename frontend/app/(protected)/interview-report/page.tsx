@@ -1,18 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { upsertInterviewReport } from "@/lib/db";
 
-// Backend URL
 const getBackendUrl = (): string => {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://ik-mulakat-ai.onrender.com';
-  return apiUrl.replace(/\/$/, '');
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://ik-mulakat-ai.onrender.com";
+  return apiUrl.replace(/\/$/, "");
 };
 
-// Types
 interface Sentiment {
   positive: number;
   neutral: number;
@@ -34,17 +32,49 @@ const formatDuration = (seconds: number): string => {
   return `${mins} dk ${secs} sn`;
 };
 
+function ProgressLine({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div>
+      <div className="mb-2 flex justify-between text-sm">
+        <span className="font-semibold text-slate-600">{label}</span>
+        <span className="font-black text-slate-950">{value}%</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function BulletCard({ title, items, tone }: { title: string; items: string[]; tone: "green" | "orange" }) {
+  const dotClass = tone === "green" ? "bg-emerald-500" : "bg-amber-500";
+  return (
+    <Card className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/70">
+      <h2 className="text-lg font-black text-slate-950">{title}</h2>
+      <ul className="mt-5 space-y-4 text-sm leading-6 text-slate-700">
+        {items.length > 0 ? (
+          items.map((item, idx) => (
+            <li key={idx} className="flex items-start gap-3">
+              <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+              <span>{item}</span>
+            </li>
+          ))
+        ) : (
+          <li className="text-slate-400">Henüz belirlenmedi</li>
+        )}
+      </ul>
+    </Card>
+  );
+}
+
 export default function InterviewReportPage() {
   const router = useRouter();
   const [report, setReport] = useState<InterviewReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
-  const [interviewId, setInterviewId] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Duration'ı localStorage'dan al
     const savedDuration = localStorage.getItem("interview_duration");
     if (savedDuration) {
       setDuration(parseInt(savedDuration, 10));
@@ -52,19 +82,14 @@ export default function InterviewReportPage() {
 
     const storedInterviewId = localStorage.getItem("active_interview_id");
     const storedSessionId = localStorage.getItem("interview_session_id");
-    setInterviewId(storedInterviewId);
-    setSessionId(storedSessionId);
-
-    // Transcript'i localStorage'dan al
     const transcript = localStorage.getItem("interview_transcript");
-    
+
     if (!transcript || transcript.trim().length < 20) {
       setError("Transkript bulunamadı veya çok kısa. Lütfen mülakatı tamamlayın.");
       setLoading(false);
       return;
     }
 
-    // API çağrısı yap
     const fetchReport = async () => {
       try {
         setLoading(true);
@@ -73,13 +98,8 @@ export default function InterviewReportPage() {
         const backendUrl = getBackendUrl();
         const response = await fetch(`${backendUrl}/api/v1/ai/report`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            transcript: transcript,
-            language: "tr",
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript, language: "tr" }),
         });
 
         if (!response.ok) {
@@ -87,21 +107,18 @@ export default function InterviewReportPage() {
           throw new Error(errorData.detail || `HTTP ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as InterviewReport;
         setReport(data);
+
         if (storedInterviewId && storedSessionId) {
           await upsertInterviewReport({
             interviewId: storedInterviewId,
             sessionId: storedSessionId,
-            report: data,
+            report: data as unknown as Record<string, unknown>,
           });
         }
-        console.log("[Interview Report] Rapor alındı:", data);
       } catch (err) {
-        console.error("[Interview Report] Hata:", err);
-        const message = err instanceof Error && err.message
-          ? err.message
-          : "Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.";
+        const message = err instanceof Error && err.message ? err.message : "Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.";
         setError(message);
       } finally {
         setLoading(false);
@@ -111,62 +128,48 @@ export default function InterviewReportPage() {
     fetchReport();
   }, []);
 
+  const sentiment = report?.sentiment ?? { positive: 0, neutral: 0, negative: 0 };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <p className="text-sm text-gray-500">Mülakat Raporu</p>
-            <h1 className="text-2xl font-semibold text-gray-900">AI Görüşme Geri Bildirimi</h1>
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      <header className="border-b border-slate-200 bg-white/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.push("/dashboard")} className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-violet-600">Mülakat Raporu</p>
+              <h1 className="mt-1 text-2xl font-black text-slate-950">AI Görüşme Geri Bildirimi</h1>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-widest text-gray-500">Görüşme Süresi</p>
-            <p className="text-lg font-semibold text-gray-900">{formatDuration(duration)}</p>
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-right">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Görüşme Süresi</p>
+              <p className="text-lg font-black text-slate-950">{formatDuration(duration)}</p>
+            </div>
+            <span className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${loading ? "bg-amber-50 text-amber-700" : error ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+              <span className={`h-2 w-2 rounded-full ${loading ? "bg-amber-500" : error ? "bg-red-500" : "bg-emerald-500"}`} />
+              {loading ? "Analiz hazırlanıyor" : error ? "Hata oluştu" : "Analiz tamamlandı"}
+            </span>
           </div>
-          <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-            loading 
-              ? "bg-yellow-100 text-yellow-700" 
-              : error 
-              ? "bg-red-100 text-red-700"
-              : "bg-green-100 text-green-700"
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${
-              loading 
-                ? "bg-yellow-500" 
-                : error 
-                ? "bg-red-500"
-                : "bg-green-500"
-            }`}></span>
-            {loading ? "Analiz hazırlanıyor..." : error ? "Hata oluştu" : "Analiz tamamlandı"}
-          </span>
         </div>
       </header>
 
-      <main className="flex-1 p-6 space-y-6 max-w-6xl mx-auto w-full">
+      <main className="mx-auto w-full max-w-7xl space-y-7 px-6 py-8">
         {loading && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-600">AI analizi hazırlanıyor...</p>
-          </div>
+          <Card className="flex flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white py-16 shadow-sm">
+            <div className="mb-5 h-12 w-12 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+            <p className="font-semibold text-slate-600">AI analizi hazırlanıyor...</p>
+          </Card>
         )}
 
         {error && (
-          <Card className="p-6 bg-red-50 border border-red-200">
-            <p className="text-red-600">{error}</p>
-            <Button
-              onClick={() => router.push("/interview-admin")}
-              className="mt-4 bg-red-600 hover:bg-red-700 text-white"
-            >
+          <Card className="rounded-3xl border border-red-200 bg-red-50 p-7">
+            <p className="font-semibold text-red-700">{error}</p>
+            <Button onClick={() => router.push("/interview-admin")} className="mt-5 rounded-2xl bg-red-600 text-white hover:bg-red-700">
               Mülakat Sayfasına Dön
             </Button>
           </Card>
@@ -174,103 +177,50 @@ export default function InterviewReportPage() {
 
         {!loading && !error && report && (
           <>
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card className="p-5 bg-white">
-                <p className="text-sm text-gray-500">Genel AI Skoru</p>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-4xl font-bold text-purple-600">{report.overall_score}</span>
-                  <span className="text-sm text-gray-500">/100</span>
+            <section className="grid gap-5 lg:grid-cols-[1.15fr,0.85fr,0.9fr]">
+              <Card className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/70">
+                <p className="text-sm font-bold text-slate-500">Genel AI Skoru</p>
+                <div className="mt-4 flex items-end gap-2">
+                  <span className="text-6xl font-black text-violet-700">{report.overall_score}</span>
+                  <span className="pb-2 text-sm font-bold text-slate-400">/100</span>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  {report.overall_comment || "Değerlendirme yapılamadı."}
-                </p>
+                <p className="mt-5 leading-7 text-slate-600">{report.overall_comment || "Değerlendirme yapılamadı."}</p>
               </Card>
 
-              <Card className="p-5 bg-white">
-                <p className="text-sm text-gray-500">Duygu Analizi</p>
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Pozitif</span>
-                      <span className="font-semibold text-gray-900">{report.sentiment.positive}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 h-2 rounded-full">
-                      <div className="h-2 rounded-full bg-green-500" style={{ width: `${report.sentiment.positive}%` }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Nötr</span>
-                      <span className="font-semibold text-gray-900">{report.sentiment.neutral}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 h-2 rounded-full">
-                      <div className="h-2 rounded-full bg-gray-400" style={{ width: `${report.sentiment.neutral}%` }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Negatif</span>
-                      <span className="font-semibold text-gray-900">{report.sentiment.negative}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 h-2 rounded-full">
-                      <div className="h-2 rounded-full bg-red-400" style={{ width: `${report.sentiment.negative}%` }} />
-                    </div>
-                  </div>
+              <Card className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/70">
+                <p className="text-sm font-bold text-slate-500">Duygu Analizi</p>
+                <div className="mt-5 space-y-5">
+                  <ProgressLine label="Pozitif" value={sentiment.positive} tone="bg-emerald-500" />
+                  <ProgressLine label="Nötr" value={sentiment.neutral} tone="bg-slate-400" />
+                  <ProgressLine label="Negatif" value={sentiment.negative} tone="bg-red-400" />
                 </div>
               </Card>
 
-              <Card className="p-5 bg-white">
-                <p className="text-sm text-gray-500">Öne Çıkan Konular</p>
-                <ul className="mt-3 space-y-2 text-sm text-gray-700">
+              <Card className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/70">
+                <p className="text-sm font-bold text-slate-500">Öne Çıkan Konular</p>
+                <div className="mt-5 flex flex-wrap gap-2">
                   {report.key_topics.length > 0 ? (
                     report.key_topics.map((topic, idx) => (
-                      <li key={idx}>• {topic}</li>
+                      <span key={idx} className="rounded-full bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700">
+                        {topic}
+                      </span>
                     ))
                   ) : (
-                    <li className="text-gray-400">Henüz konu belirlenmedi</li>
+                    <span className="text-sm text-slate-400">Henüz konu belirlenmedi</span>
                   )}
-                </ul>
+                </div>
               </Card>
-            </div>
+            </section>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card className="p-6 bg-white">
-                <h2 className="text-lg font-semibold text-gray-900">Güçlü Yönler</h2>
-                <ul className="mt-4 space-y-3 text-sm text-gray-700">
-                  {report.strengths.length > 0 ? (
-                    report.strengths.map((strength, idx) => (
-                      <li key={idx} className="flex items-start gap-3">
-                        <span className="w-2 h-2 rounded-full bg-green-500 mt-2"></span>
-                        <p>{strength}</p>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-gray-400">Henüz belirlenmedi</li>
-                  )}
-                </ul>
-              </Card>
-
-              <Card className="p-6 bg-white">
-                <h2 className="text-lg font-semibold text-gray-900">Geliştirilmesi Gerekenler</h2>
-                <ul className="mt-4 space-y-3 text-sm text-gray-700">
-                  {report.improvements.length > 0 ? (
-                    report.improvements.map((improvement, idx) => (
-                      <li key={idx} className="flex items-start gap-3">
-                        <span className="w-2 h-2 rounded-full bg-orange-500 mt-2"></span>
-                        <p>{improvement}</p>
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-gray-400">Henüz belirlenmedi</li>
-                  )}
-                </ul>
-              </Card>
-            </div>
+            <section className="grid gap-5 md:grid-cols-2">
+              <BulletCard title="Güçlü Yönler" items={report.strengths} tone="green" />
+              <BulletCard title="Geliştirilmesi Gerekenler" items={report.improvements} tone="orange" />
+            </section>
           </>
         )}
 
         <div className="flex justify-end">
-          <Button onClick={() => router.push("/dashboard")} className="bg-purple-600 text-white hover:bg-purple-700">
+          <Button onClick={() => router.push("/dashboard")} className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 text-white shadow-lg shadow-violet-500/20 hover:opacity-95">
             Dashboard'a Dön
           </Button>
         </div>
@@ -278,4 +228,3 @@ export default function InterviewReportPage() {
     </div>
   );
 }
-

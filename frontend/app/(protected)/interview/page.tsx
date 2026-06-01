@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useWebRTC } from "@/webrtc/useWebRTC";
 
 export default function InterviewRoomPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [duration, setDuration] = useState(0); // seconds
+  const [duration, setDuration] = useState(0);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [sessionId, setSessionId] = useState<string>("");
@@ -17,7 +17,6 @@ export default function InterviewRoomPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  // WebRTC bağlantısı
   const { remoteStream, isConnected, connectionError } = useWebRTC({
     localStream: sessionId ? localStream : null,
     onRemoteStream: (stream) => {
@@ -46,11 +45,8 @@ export default function InterviewRoomPage() {
     setSessionId("interview-room-1");
   }, [searchParams]);
 
-  // Süreyi otomatik başlat
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDuration((prev) => prev + 1);
-    }, 1000);
+    const interval = setInterval(() => setDuration((prev) => prev + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -60,7 +56,6 @@ export default function InterviewRoomPage() {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
-  // Initialize camera and microphone stream only once on mount
   useEffect(() => {
     let stream: MediaStream | null = null;
 
@@ -69,13 +64,9 @@ export default function InterviewRoomPage() {
         setVideoError(null);
         setAudioError(null);
         stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: true,
         });
-        // Set initial microphone state
         stream.getAudioTracks().forEach((track) => {
           track.enabled = isMicOn;
         });
@@ -87,10 +78,7 @@ export default function InterviewRoomPage() {
         setAudioError("Mikrofon erişimi sağlanamadı. Yalnızca kamera açıldı.");
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-            },
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: false,
           });
           setLocalStream(stream);
@@ -104,7 +92,6 @@ export default function InterviewRoomPage() {
       }
     };
 
-    // Initialize stream only once when component mounts
     enableCamera();
 
     return () => {
@@ -113,57 +100,35 @@ export default function InterviewRoomPage() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once on mount
+  }, []);
 
-  // Handle video on/off by enabling/disabling video tracks
   useEffect(() => {
-    if (localStream) {
-      const videoTracks = localStream.getVideoTracks();
-      videoTracks.forEach((track) => {
-        track.enabled = isVideoOn;
-      });
-    }
+    if (!localStream) return;
+    localStream.getVideoTracks().forEach((track) => {
+      track.enabled = isVideoOn;
+    });
   }, [isVideoOn, localStream]);
 
-  // Update local video element when stream is available
   useEffect(() => {
-    if (videoRef.current) {
-      if (localStream && isVideoOn) {
-        videoRef.current.srcObject = localStream;
-        const playPromise = videoRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn("Video autoplay prevented:", err);
-          });
-        }
-      } else {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
-      }
+    if (!videoRef.current) return;
+    if (localStream && isVideoOn) {
+      videoRef.current.srcObject = localStream;
+      videoRef.current.play().catch((err) => console.warn("Video autoplay prevented:", err));
+    } else {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
     }
   }, [localStream, isVideoOn]);
 
-  // Update remote video element when remote stream is available
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      console.log("🎥 Kullanıcı: Remote stream video element'e set ediliyor", remoteStream);
-      console.log("🎥 Remote stream tracks:", remoteStream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, id: t.id })));
       remoteVideoRef.current.srcObject = remoteStream;
-      const playPromise = remoteVideoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => console.log("✅ Remote video oynatılıyor"))
-          .catch((err) => {
-            console.error("❌ Remote video autoplay prevented:", err);
-          });
-      }
+      remoteVideoRef.current.play().catch((err) => console.error("Remote video autoplay prevented:", err));
     } else if (remoteVideoRef.current && !remoteStream) {
-      console.log("⚠️ Kullanıcı: Remote stream yok, video temizleniyor");
       remoteVideoRef.current.srcObject = null;
     }
   }, [remoteStream]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (localStream) {
@@ -180,13 +145,11 @@ export default function InterviewRoomPage() {
     }
 
     const audioTracks = localStream.getAudioTracks();
-
     if (audioTracks.length === 0) {
       setAudioError("Mikrofon track'i bulunamadı.");
       return;
     }
 
-    // Sadece audio track'in enabled özelliğini değiştir
     const newMicState = !isMicOn;
     audioTracks.forEach((track) => {
       track.enabled = newMicState;
@@ -196,131 +159,87 @@ export default function InterviewRoomPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push("/interview-info")}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">Mülakat Oturumu</h1>
-            <p className="text-sm text-gray-600">Görüşme sırasında kameranız burada görüntülenecek.</p>
+    <div className="flex min-h-screen flex-col bg-[#080b16] text-white">
+      <header className="border-b border-white/10 bg-white/[0.03] px-6 py-5 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.push("/interview-info")} className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/80 transition hover:bg-white/15">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-violet-300">Mülakat Oturumu</p>
+              <h1 className="mt-1 text-xl font-black">Görüşme sırasında kameranız burada görüntülenecek.</h1>
+            </div>
           </div>
+          <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-black text-white">Süre: {formatDuration(duration)}</div>
         </div>
-        <div className="text-sm font-medium text-gray-700">Süre: {formatDuration(duration)}</div>
-      </div>
+      </header>
 
-      <div className="flex-1 p-6 flex flex-col gap-6">
-        <div className="grid gap-6 lg:grid-cols-[2fr,1fr] flex-1">
-          <div className="relative bg-gray-900 rounded-2xl overflow-hidden min-h-[280px] lg:min-h-[380px]">
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-6">
+        <div className="grid flex-1 gap-6 lg:grid-cols-[2fr,1fr]">
+          <section className="relative min-h-[320px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl shadow-black/30 lg:min-h-[520px]">
             {localStream && isVideoOn ? (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="absolute inset-0 w-full h-full object-cover"
-              />
+              <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 h-full w-full object-cover" />
             ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white text-center px-6">
-                <div className="w-24 h-24 bg-purple-600 rounded-full flex items-center justify-center mb-4 text-3xl font-semibold">
-                  AY
-                </div>
-                <h2 className="text-2xl font-semibold">Ahmet Yılmaz</h2>
-                <p className="text-sm text-gray-300 mt-2">Görüşme aktif</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(124,58,237,0.28),transparent_42%),#0f172a] px-6 text-center">
+                <div className="mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-violet-600 text-3xl font-black shadow-xl shadow-violet-600/25">AY</div>
+                <h2 className="text-2xl font-black">Aday Kamerası Kapalı</h2>
+                <p className="mt-2 text-sm text-white/60">Görüşme aktif</p>
               </div>
             )}
-
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-5">
-            <div>
-              <p className="text-sm uppercase tracking-widest text-purple-500 font-semibold">Görüşmeci Görüntüsü</p>
-              <h3 className="text-xl font-semibold text-gray-900 mt-1">AI Mülakat Asistanı</h3>
-              {isConnected && (
-                <p className="text-xs text-green-600 mt-1">● Bağlı</p>
-              )}
-              {connectionError && (
-                <p className="text-xs text-red-600 mt-1">⚠ {connectionError}</p>
-              )}
+            <div className="absolute left-5 top-5 rounded-2xl border border-white/10 bg-black/40 px-4 py-2 text-sm font-bold backdrop-blur-xl">
+              Siz
             </div>
-            <div className="relative bg-gray-900 rounded-2xl overflow-hidden flex-1 aspect-video">
+          </section>
+
+          <aside className="flex flex-col rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl">
+            <div className="mb-5">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-violet-300">Görüşmeci Görüntüsü</p>
+              <h3 className="mt-2 text-xl font-black">AI Mülakat Asistanı</h3>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
+                <span className={`rounded-full px-3 py-1 ${isConnected ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-white/50"}`}>{isConnected ? "● Bağlı" : "Bağlantı bekleniyor"}</span>
+                {connectionError && <span className="rounded-full bg-red-500/15 px-3 py-1 text-red-300">⚠ {connectionError}</span>}
+              </div>
+            </div>
+
+            <div className="relative aspect-video overflow-hidden rounded-3xl bg-black">
               {remoteStream ? (
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
+                <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 h-full w-full object-cover" />
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white text-center px-6">
-                  <div className="w-20 h-20 bg-purple-600 rounded-full flex items-center justify-center mb-4 text-2xl font-semibold">
-                    AI
-                  </div>
-                  <p className="text-lg font-semibold">Görüşmeci yayında</p>
-                  <p className="text-sm text-white/70 mt-1">
-                    {isConnected ? "Görüşmeci bağlanıyor..." : "Görüşmeci sorularını aktarmak için hazır bekliyor."}
-                  </p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0f0829] px-6 text-center">
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-600 text-2xl font-black">AI</div>
+                  <p className="font-black">Görüşmeci yayında</p>
+                  <p className="mt-2 text-sm text-white/55">{isConnected ? "Görüşmeci bağlanıyor..." : "Görüşmeci hazır bekliyor."}</p>
                 </div>
               )}
             </div>
-            <div className="text-sm text-gray-500">
-              Gerçek görüşme senaryosunda, mülakatı yapan kişinin kamerası bu alanda yayınlanır.
-            </div>
+
+            <p className="mt-5 text-sm leading-6 text-white/55">Gerçek görüşme senaryosunda mülakatı yapan kişinin kamerası bu alanda yayınlanır.</p>
+          </aside>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-xl items-center justify-center gap-4 rounded-[2rem] border border-white/10 bg-white/[0.06] px-8 py-5 shadow-2xl shadow-black/20 backdrop-blur-xl">
+          <button onClick={handleToggleMic} className={`flex h-14 w-14 items-center justify-center rounded-2xl transition ${isMicOn ? "bg-white/10 text-white hover:bg-white/15" : "bg-red-500/20 text-red-300"}`} aria-label="Mikrofonu aç/kapat">
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </button>
+          <button onClick={() => setIsVideoOn(!isVideoOn)} className={`flex h-14 w-14 items-center justify-center rounded-2xl transition ${isVideoOn ? "bg-white/10 text-white hover:bg-white/15" : "bg-red-500/20 text-red-300"}`} aria-label="Kamerayı aç/kapat">
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div>
+
+        {(videoError || audioError) && (
+          <div className="mx-auto w-full max-w-xl space-y-2 text-center text-sm">
+            {videoError && <p className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-red-200">{videoError}</p>}
+            {audioError && <p className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-red-200">{audioError}</p>}
           </div>
-        </div>
-
-        <div className="flex items-center justify-center gap-4 bg-white rounded-2xl px-8 py-5 shadow-sm">
-          <button
-            onClick={handleToggleMic}
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors text-gray-700 ${
-              isMicOn ? "bg-gray-100" : "bg-red-100 text-red-600"
-            }`}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-              />
-            </svg>
-          </button>
-          <button
-            onClick={() => setIsVideoOn(!isVideoOn)}
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors text-gray-700 ${
-              isVideoOn ? "bg-gray-100" : "bg-red-100 text-red-600"
-            }`}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {videoError && (
-            <p className="text-sm text-red-500 bg-white/70 rounded-lg px-4 py-2 w-full max-w-xl mx-auto text-center">
-              {videoError}
-            </p>
-          )}
-          {audioError && (
-            <p className="text-sm text-red-500 bg-white/70 rounded-lg px-4 py-2 w-full max-w-xl mx-auto text-center">
-              {audioError}
-            </p>
-          )}
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 }

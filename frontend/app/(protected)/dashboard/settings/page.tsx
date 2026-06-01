@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "@/lib/auth";
@@ -17,10 +17,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Form state
   const [email, setEmail] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [notifications, setNotifications] = useState({
@@ -54,19 +51,15 @@ export default function SettingsPage() {
     }
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) {
         setError(updateError.message);
       } else {
         setSuccessMessage("Şifre başarıyla güncellendi.");
-        setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
       }
-    } catch (err: any) {
+    } catch (err) {
       setError("Şifre güncellenirken bir hata oluştu.");
       console.error(err);
     } finally {
@@ -87,16 +80,13 @@ export default function SettingsPage() {
     }
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        email: email,
-      });
-
+      const { error: updateError } = await supabase.auth.updateUser({ email });
       if (updateError) {
         setError(updateError.message);
       } else {
         setSuccessMessage("E-posta adresi güncellendi. Lütfen yeni e-posta adresinizi doğrulayın.");
       }
-    } catch (err: any) {
+    } catch (err) {
       setError("E-posta güncellenirken bir hata oluştu.");
       console.error(err);
     } finally {
@@ -105,10 +95,7 @@ export default function SettingsPage() {
   };
 
   const handleNotificationChange = (key: keyof typeof notifications) => {
-    setNotifications((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleLogout = async () => {
@@ -118,63 +105,44 @@ export default function SettingsPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-lg">Yükleniyor...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen">
-        {/* Logo */}
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-purple-600">AI Mülakat</h1>
+    <div className="flex min-h-screen bg-slate-50 text-slate-950">
+      <aside className="sticky top-0 flex h-screen w-64 flex-col border-r border-white/10 bg-[#070b1a] text-slate-300">
+        <div className="border-b border-white/10 p-6">
+          <h1 className="text-2xl font-black text-white">AI Mülakat</h1>
         </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-4 flex flex-col">
-          <div className="space-y-2 flex-1 overflow-y-auto">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
+        <nav className="flex flex-1 flex-col p-4">
+          <div className="flex-1 space-y-2">
+            <button onClick={() => router.push("/dashboard")} className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-slate-300 transition hover:bg-white/10 hover:text-white">
+              <span>▦</span>
               Panel
             </button>
-            <button
-              onClick={() => router.push("/dashboard/settings")}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-purple-50 text-purple-600 font-medium"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+            <button onClick={() => router.push("/dashboard/settings")} className="flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-3 font-bold text-white shadow-lg shadow-violet-950/30">
+              <span>⚙</span>
               Ayarlar
             </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="mt-auto flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 w-full border-t border-gray-200 pt-4"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
+          <button onClick={handleLogout} className="mt-auto flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-red-300 transition hover:bg-red-500/10">
+            <span>↪</span>
             Çıkış Yap
           </button>
         </nav>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 h-screen overflow-y-auto">
-        <div className="p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Ayarlar</h1>
-            <p className="text-gray-600">Hesap ayarlarınızı ve tercihlerinizi yönetin.</p>
+      <main className="h-screen flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-5xl p-8">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-violet-600">Hesap Yönetimi</p>
+              <h1 className="mt-2 text-3xl font-black text-slate-950">Ayarlar</h1>
+              <p className="mt-2 text-slate-500">Hesap bilgilerinizi ve bildirim tercihlerinizi yönetin.</p>
+            </div>
           </div>
 
           {error && (
@@ -184,137 +152,58 @@ export default function SettingsPage() {
           )}
 
           {successMessage && (
-            <Alert className="mb-6 bg-green-50 border-green-200 text-green-800">
+            <Alert className="mb-6 border-emerald-200 bg-emerald-50 text-emerald-800">
               <AlertDescription>{successMessage}</AlertDescription>
             </Alert>
           )}
 
           <div className="space-y-6">
-            {/* Hesap Bilgileri */}
-            <Card className="p-6 bg-white">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Hesap Bilgileri</h2>
-              <form onSubmit={handleEmailUpdate} className="space-y-4">
+            <Card className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/70">
+              <h2 className="text-xl font-black text-slate-950">Hesap Bilgileri</h2>
+              <form onSubmit={handleEmailUpdate} className="mt-6 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">E-posta Adresi</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={loading}
-                    className="max-w-md"
-                  />
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} className="h-12 max-w-md rounded-2xl border-slate-200 bg-slate-50" />
                 </div>
-                <Button type="submit" disabled={loading || email === user?.email} className="bg-purple-600 hover:bg-purple-700">
+                <Button type="submit" disabled={loading || email === user?.email} className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 text-white shadow-lg shadow-violet-500/20 hover:opacity-95">
                   {loading ? "Güncelleniyor..." : "E-posta Adresini Güncelle"}
                 </Button>
               </form>
             </Card>
 
-            {/* Şifre Değiştirme */}
-            <Card className="p-6 bg-white">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Şifre Değiştir</h2>
-              <form onSubmit={handlePasswordChange} className="space-y-4">
+            <Card className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/70">
+              <h2 className="text-xl font-black text-slate-950">Şifre Değiştir</h2>
+              <form onSubmit={handlePasswordChange} className="mt-6 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">Yeni Şifre</Label>
-                  <Input
-                    id="newPassword"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    disabled={loading}
-                    placeholder="En az 6 karakter"
-                    className="max-w-md"
-                  />
+                  <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={loading} placeholder="En az 6 karakter" className="h-12 max-w-md rounded-2xl border-slate-200 bg-slate-50" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Yeni Şifre (Tekrar)</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    disabled={loading}
-                    placeholder="Şifrenizi tekrar girin"
-                    className="max-w-md"
-                  />
+                  <Label htmlFor="confirmPassword">Yeni Şifre Tekrar</Label>
+                  <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={loading} placeholder="Yeni şifreyi tekrar girin" className="h-12 max-w-md rounded-2xl border-slate-200 bg-slate-50" />
                 </div>
-                <Button type="submit" disabled={loading || !newPassword || !confirmPassword} className="bg-purple-600 hover:bg-purple-700">
+                <Button type="submit" disabled={loading || !newPassword || !confirmPassword} className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 text-white shadow-lg shadow-violet-500/20 hover:opacity-95">
                   {loading ? "Güncelleniyor..." : "Şifreyi Güncelle"}
                 </Button>
               </form>
             </Card>
 
-            {/* Bildirim Tercihleri */}
-            <Card className="p-6 bg-white">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Bildirim Tercihleri</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-gray-900">E-posta Bildirimleri</h3>
-                    <p className="text-sm text-gray-600">Önemli güncellemeler için e-posta alın</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.email}
-                      onChange={() => handleNotificationChange("email")}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+            <Card className="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/70">
+              <h2 className="text-xl font-black text-slate-950">Bildirim Tercihleri</h2>
+              <div className="mt-6 space-y-4">
+                {([
+                  ["email", "E-posta Bildirimleri", "Mülakat davetleri ve sistem duyuruları."],
+                  ["push", "Anlık Bildirimler", "Tarayıcı üzerinden hızlı bilgilendirmeler."],
+                  ["reports", "Rapor Bildirimleri", "Rapor oluşturulduğunda bilgilendirme."],
+                ] as const).map(([key, title, description]) => (
+                  <label key={key} className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+                    <span>
+                      <span className="block font-bold text-slate-900">{title}</span>
+                      <span className="mt-1 block text-sm text-slate-500">{description}</span>
+                    </span>
+                    <input type="checkbox" checked={notifications[key]} onChange={() => handleNotificationChange(key)} className="h-5 w-5 accent-violet-600" />
                   </label>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-gray-900">Push Bildirimleri</h3>
-                    <p className="text-sm text-gray-600">Tarayıcı push bildirimleri alın</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.push}
-                      onChange={() => handleNotificationChange("push")}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                  </label>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-gray-900">Rapor Bildirimleri</h3>
-                    <p className="text-sm text-gray-600">Yeni raporlar hazır olduğunda bildirim alın</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.reports}
-                      onChange={() => handleNotificationChange("reports")}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                  </label>
-                </div>
-              </div>
-            </Card>
-
-            {/* Sistem Bilgileri */}
-            <Card className="p-6 bg-white">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Sistem Bilgileri</h2>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Kullanıcı ID</span>
-                  <span className="font-mono text-sm text-gray-900">{user?.id || "Yükleniyor..."}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">E-posta</span>
-                  <span className="text-gray-900">{user?.email || "Yükleniyor..."}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Hesap Oluşturulma</span>
-                  <span className="text-gray-900">
-                    {user?.created_at ? new Date(user.created_at).toLocaleDateString("tr-TR") : "Yükleniyor..."}
-                  </span>
-                </div>
+                ))}
               </div>
             </Card>
           </div>
@@ -323,4 +212,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
