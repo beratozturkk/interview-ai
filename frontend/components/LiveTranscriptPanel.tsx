@@ -2,16 +2,16 @@
 
 /**
  * Canlı Transkript Paneli
- * WebSocket üzerinden gelen transcript mesajlarını gerçek zamanlı gösterir
+ * WebSocket üzerinden gelen transcript mesajlarını gerçek zamanlı gösterir.
+ * Bu dosyada frontend tarafında da noise/halüsinasyon filtresi vardır.
  */
 
 import { useEffect, useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 
-// Backend URL
 const getBackendUrl = (): string => {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://ik-mulakat-ai.onrender.com';
-  return apiUrl.replace(/^http/, 'ws').replace(/\/$/, '');
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://ik-mulakat-ai.onrender.com";
+  return apiUrl.replace(/^http/, "ws").replace(/\/$/, "");
 };
 
 export interface TranscriptItem {
@@ -23,8 +23,101 @@ export interface TranscriptItem {
 
 interface LiveTranscriptPanelProps {
   sessionId: string;
-  onTranscriptChange?: (items: TranscriptItem[]) => void; // Callback for transcript changes
+  onTranscriptChange?: (items: TranscriptItem[]) => void;
 }
+
+const normalizeTranscriptText = (text: string): string => {
+  return (text || "")
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+export const isTranscriptNoise = (text: string): boolean => {
+  const raw = (text || "").trim();
+  const normalized = normalizeTranscriptText(raw);
+
+  if (!normalized) return true;
+
+  const words = normalized.split(" ").filter(Boolean);
+
+  const allowedShortAnswers = new Set([
+    "evet",
+    "hayir",
+    "tamam",
+    "olur",
+    "peki",
+    "merhaba",
+  ]);
+
+  if (words.length === 1 && !allowedShortAnswers.has(normalized)) {
+    return true;
+  }
+
+  if (raw.length < 12 && !allowedShortAnswers.has(normalized)) {
+    return true;
+  }
+
+  const noisePhrases = [
+    "abone olmayi",
+    "abone olun",
+    "abone ol",
+    "kanalima abone",
+    "begeni butonuna",
+    "begen butonuna",
+    "yorum yapmayi",
+    "yorum yapin",
+    "altyazi",
+    "altyazilar",
+    "altyazi m k",
+    "ceviri",
+    "seslendiren",
+    "izlediginiz icin tesekkur ederim",
+    "izlediginiz icin tesekkurler",
+    "beni izlediginiz icin tesekkur ederim",
+    "yeni videolarda gorusmek uzere",
+    "gorusmek uzere hoscakalin",
+    "hoscakalin",
+    "dont forget subscribe",
+    "do not forget subscribe",
+    "like and subscribe",
+    "subscribe to the channel",
+    "thanks for watching",
+    "thank you for watching",
+    "subtitles by",
+    "captions by",
+    "amara org",
+    "sesim geliyor mu",
+    "ses geliyor mu",
+    "mikrofon test",
+    "deneme deneme",
+  ];
+
+  if (noisePhrases.some((phrase) => normalized.includes(phrase))) {
+    return true;
+  }
+
+  return false;
+};
+
+const isNearDuplicate = (text: string, items: TranscriptItem[]): boolean => {
+  const normalized = normalizeTranscriptText(text);
+  if (!normalized) return true;
+
+  return items.slice(-12).some((item) => {
+    const previous = normalizeTranscriptText(item.text);
+    return previous === normalized || previous.includes(normalized) || normalized.includes(previous);
+  });
+};
 
 export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTranscriptPanelProps) {
   const [items, setItems] = useState<TranscriptItem[]>([]);
@@ -38,29 +131,29 @@ export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTrans
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
 
-  // WebSocket bağlantısı
   useEffect(() => {
     if (!sessionId) return;
 
     const backendUrl = getBackendUrl();
     const wsUrl = `${backendUrl}/api/v1/stt/ws/transcript?session_id=${sessionId}`;
 
-    console.log('[Transcript] WebSocket bağlantısı kuruluyor:', wsUrl);
+    console.log("[Transcript] WebSocket bağlantısı kuruluyor:", wsUrl);
 
     manualCloseRef.current = false;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('[Transcript] ✅ WebSocket connected');
+      console.log("[Transcript] ✅ WebSocket connected");
       setIsConnected(true);
       setConnectionError(null);
       reconnectAttemptsRef.current = 0;
     };
 
     ws.onclose = (event) => {
-      console.log('[Transcript] WebSocket closed:', event.code, event.reason);
+      console.log("[Transcript] WebSocket closed:", event.code, event.reason);
       setIsConnected(false);
+
       if (!manualCloseRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
         const delay = Math.min(1000 * (reconnectAttemptsRef.current + 1), 8000);
         reconnectAttemptsRef.current += 1;
@@ -68,153 +161,140 @@ export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTrans
           setReconnectAttempt((prev) => prev + 1);
         }, delay);
       } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-        setConnectionError('Transkript bağlantısı tekrar kurulamadı');
+        setConnectionError("Transkript bağlantısı tekrar kurulamadı");
       }
     };
 
     ws.onerror = (error) => {
-      console.error('[Transcript] ❌ WebSocket error:', error);
-      setConnectionError('Transkript bağlantısı kurulamadı');
+      console.error("[Transcript] ❌ WebSocket error:", error);
+      setConnectionError("Transkript bağlantısı kurulamadı");
     };
 
     ws.onmessage = (event) => {
       try {
-        // Ping/pong mesajları
-        if (event.data === 'ping') {
-          ws.send('pong');
-          return;
-        }
-        if (event.data === 'pong') {
+        if (event.data === "ping") {
+          ws.send("pong");
           return;
         }
 
-        const data = JSON.parse(event.data) as { role: string; text: string };
-        
-        console.log('[LiveTranscript] New transcript message:', data);
+        if (event.data === "pong") {
+          return;
+        }
 
-        // Transcript mesajı kontrolü
+        const data = JSON.parse(event.data) as { role?: string; text?: string };
+
         if (!data.role || !data.text) {
-          console.warn('[LiveTranscript] Geçersiz mesaj formatı:', data);
+          console.warn("[LiveTranscript] Geçersiz mesaj formatı:", data);
           return;
         }
 
-        const newItem: TranscriptItem = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          role: data.role === "Aday" ? "Aday" : "Görüşmeci",
-          text: data.text,
-          timestamp: new Date(),
-        };
+        if (isTranscriptNoise(data.text)) {
+          console.warn("[LiveTranscript] Noise transcript dropped:", data.text);
+          return;
+        }
 
-        console.log('[LiveTranscript] Yeni transcript item eklendi:', newItem);
         setItems((prev) => {
-          const newItems = [...prev, newItem];
-          // Callback'i çağır
-          onTranscriptChange?.(newItems);
-          return newItems;
+          if (isNearDuplicate(data.text || "", prev)) {
+            console.warn("[LiveTranscript] Duplicate transcript dropped:", data.text);
+            return prev;
+          }
+
+          const newItem: TranscriptItem = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+            role: data.role === "Aday" ? "Aday" : "Görüşmeci",
+            text: data.text!.trim(),
+            timestamp: new Date(),
+          };
+
+          return [...prev, newItem].slice(-80);
         });
       } catch (error) {
-        console.error('[Transcript] Mesaj parse hatası:', error, event.data);
+        console.error("[Transcript] Mesaj parse hatası:", error, event.data);
       }
     };
 
-    // Cleanup
     return () => {
-      console.log('[Transcript] Cleanup - WebSocket kapatılıyor');
+      console.log("[Transcript] Cleanup - WebSocket kapatılıyor");
       manualCloseRef.current = true;
+
       if (reconnectTimeoutRef.current) {
         window.clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+
       if (ws.readyState === WebSocket.OPEN) {
-        ws.close(1000, 'Component unmount');
+        ws.close(1000, "Component unmount");
       }
+
       wsRef.current = null;
     };
   }, [sessionId, reconnectAttempt]);
 
-  // Yeni mesaj geldiğinde otomatik scroll ve callback
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-    // Transcript değiştiğinde callback'i çağır
+
     onTranscriptChange?.(items);
   }, [items, onTranscriptChange]);
 
   const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('tr-TR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
+    return date.toLocaleTimeString("tr-TR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
   };
 
   return (
-    <Card className="p-4 bg-white">
-      <div className="flex items-center gap-2 mb-4">
-        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
-        </svg>
-        <h2 className="text-lg font-semibold text-gray-900">Canlı Transkript</h2>
-        
-        {/* Bağlantı durumu göstergesi */}
-        <div className="ml-auto flex items-center gap-1">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              isConnected ? "bg-green-500" : "bg-red-500"
-            }`}
-          />
-          <span className="text-xs text-gray-500">
+    <Card className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+      <div className="mb-5 flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+            />
+          </svg>
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">Canlı Transkript</h2>
+          <p className="text-xs text-slate-500">Aday cevapları gerçek zamanlı işlenir.</p>
+        </div>
+
+        <div className="ml-auto flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1">
+          <span className={`h-2 w-2 rounded-full ${isConnected ? "bg-emerald-500" : "bg-red-500"}`} />
+          <span className="text-xs font-medium text-slate-500">
             {isConnected ? "Bağlı" : "Bağlantı Yok"}
           </span>
         </div>
       </div>
 
-      {/* Hata mesajı */}
       {connectionError && (
-        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+        <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
           {connectionError}
         </div>
       )}
 
-      {/* Transcript listesi */}
-      <div
-        ref={scrollRef}
-        className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300"
-      >
+      <div ref={scrollRef} className="max-h-72 space-y-3 overflow-y-auto pr-1">
         {items.map((item) => (
-          <div key={item.id} className="text-sm animate-fadeIn">
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className={`font-medium ${
-                  item.role === "Aday" ? "text-blue-600" : "text-purple-600"
-                }`}
-              >
+          <div key={item.id} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 text-sm">
+            <div className="mb-1 flex items-center gap-2">
+              <span className={`font-semibold ${item.role === "Aday" ? "text-violet-700" : "text-blue-700"}`}>
                 {item.role}
               </span>
-              <span className="text-gray-400 text-xs">
-                ({formatTime(item.timestamp)})
-              </span>
+              <span className="text-xs text-slate-400">({formatTime(item.timestamp)})</span>
             </div>
-            <p className="text-gray-700 leading-relaxed">{item.text}</p>
+            <p className="leading-relaxed text-slate-700">{item.text}</p>
           </div>
         ))}
 
-        {/* Boş state */}
         {items.length === 0 && (
-          <div className="text-center py-8">
-            <div className="text-gray-400 mb-2">
-              <svg
-                className="w-12 h-12 mx-auto"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+          <div className="rounded-3xl border border-dashed border-slate-200 py-10 text-center">
+            <div className="mb-3 text-slate-300">
+              <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -223,12 +303,8 @@ export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTrans
                 />
               </svg>
             </div>
-            <p className="text-gray-500 text-sm">
-              Henüz transkript yok…
-            </p>
-            <p className="text-gray-400 text-xs mt-1">
-              Konuşma başladığında burada görünecek
-            </p>
+            <p className="text-sm font-medium text-slate-500">Henüz transkript yok</p>
+            <p className="mt-1 text-xs text-slate-400">Konuşma başladığında burada görünecek.</p>
           </div>
         )}
       </div>
@@ -237,4 +313,3 @@ export function LiveTranscriptPanel({ sessionId, onTranscriptChange }: LiveTrans
 }
 
 export default LiveTranscriptPanel;
-

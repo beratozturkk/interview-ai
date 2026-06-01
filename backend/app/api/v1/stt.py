@@ -198,6 +198,22 @@ def _is_noise_text(text: str) -> bool:
         return True
 
     normalized = _normalize_noise_text(cleaned)
+    words = normalized.split()
+
+    allowed_short_answers = {
+        "evet",
+        "hayir",
+        "hayır",
+        "tamam",
+        "olur",
+        "merhaba",
+    }
+
+    if len(words) == 1 and normalized not in allowed_short_answers:
+        return True
+
+    if len(cleaned) < 12 and normalized not in allowed_short_answers:
+        return True
 
     if any(phrase in normalized for phrase in NOISE_PHRASES):
         return True

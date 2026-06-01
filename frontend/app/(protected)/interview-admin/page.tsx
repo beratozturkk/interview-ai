@@ -111,6 +111,81 @@ export default function InterviewAdminPage() {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
+  const normalizeTranscriptText = (text: string) => {
+    return (text || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replaceAll("ı", "i")
+      .replaceAll("ğ", "g")
+      .replaceAll("ü", "u")
+      .replaceAll("ş", "s")
+      .replaceAll("ö", "o")
+      .replaceAll("ç", "c")
+      .replace(/[^\w\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const isTranscriptNoise = (text: string) => {
+    const raw = (text || "").trim();
+    const normalized = normalizeTranscriptText(raw);
+
+    if (!normalized) return true;
+
+    const words = normalized.split(" ").filter(Boolean);
+    const allowedShortAnswers = new Set(["evet", "hayir", "tamam", "olur", "peki", "merhaba"]);
+
+    if (words.length === 1 && !allowedShortAnswers.has(normalized)) return true;
+    if (raw.length < 12 && !allowedShortAnswers.has(normalized)) return true;
+
+    const noisePhrases = [
+      "abone olmayi",
+      "abone olun",
+      "abone ol",
+      "kanalima abone",
+      "begeni butonuna",
+      "begen butonuna",
+      "yorum yapmayi",
+      "yorum yapin",
+      "altyazi",
+      "altyazilar",
+      "altyazi m k",
+      "ceviri",
+      "seslendiren",
+      "izlediginiz icin tesekkur ederim",
+      "izlediginiz icin tesekkurler",
+      "beni izlediginiz icin tesekkur ederim",
+      "yeni videolarda gorusmek uzere",
+      "gorusmek uzere hoscakalin",
+      "hoscakalin",
+      "dont forget subscribe",
+      "do not forget subscribe",
+      "like and subscribe",
+      "subscribe to the channel",
+      "thanks for watching",
+      "thank you for watching",
+      "subtitles by",
+      "captions by",
+      "amara org",
+      "sesim geliyor mu",
+      "ses geliyor mu",
+      "mikrofon test",
+      "deneme deneme",
+    ];
+
+    return noisePhrases.some((phrase) => normalized.includes(phrase));
+  };
+
+  const getCleanCandidateTranscript = () => {
+    return transcriptItems
+      .filter((item) => item.role === "Aday")
+      .filter((item) => !isTranscriptNoise(item.text))
+      .map((item) => item.text.trim())
+      .filter(Boolean)
+      .join("\n");
+  };
+
   useEffect(() => {
     if (!interviewId || !sessionId) return;
     if (transcriptItems.length <= lastSavedIndexRef.current) return;
@@ -122,89 +197,42 @@ export default function InterviewAdminPage() {
       .filter((item) => !isTranscriptNoise(item.text))
       .map((item) => ({
         role: item.role,
-        text: item.text,
-      }));
+        text: item.text.trim(),
+      }))
+      .filter((item) => item.text.length > 0);
 
     if (payload.length > 0) {
       insertTranscriptSegments(interviewId, sessionId, payload);
     }
   }, [interviewId, sessionId, transcriptItems]);
-const normalizeTranscriptText = (text: string) => {
-  return text
-    .toLowerCase()
-    .replaceAll("ı", "i")
-    .replaceAll("ğ", "g")
-    .replaceAll("ü", "u")
-    .replaceAll("ş", "s")
-    .replaceAll("ö", "o")
-    .replaceAll("ç", "c")
-    .replace(/[^\w\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-};
 
-  const isTranscriptNoise = (text: string) => {
-    const normalized = normalizeTranscriptText(text);
-
-    if (!normalized || normalized.length < 3) return true;
-
-    const noisePhrases = [
-      "abone olmayi",
-      "abone olun",
-      "abone ol",
-      "begeni butonuna",
-      "begen butonuna",
-      "yorum yapmayi",
-      "yorum yapin",
-      "kanalima abone",
-      "izlediginiz icin tesekkur ederim",
-      "izlediginiz icin tesekkurler",
-      "beni izlediginiz icin tesekkur ederim",
-      "yeni videolarda gorusmek uzere",
-      "hoscakal",
-      "hoscakalin",
-      "altyazi",
-      "altyazi m k",
-      "altyazilar",
-      "ceviri",
-      "seslendiren",
-      "dont forget subscribe",
-      "do not forget subscribe",
-      "like and subscribe",
-      "subscribe to the channel",
-      "thanks for watching",
-      "thank you for watching",
-      "subtitles by",
-      "captions by",
-      "amara org",
-    ];
-
-    return noisePhrases.some((phrase) => normalized.includes(phrase));
+  const handleGoBack = () => {
+    window.location.href = "/dashboard";
   };
 
-  const handleTranscriptChange = (items: TranscriptItem[]) => {
-    setTranscriptItems(items.filter((item) => !isTranscriptNoise(item.text)));
-  };
+  const handleInterviewAction = async () => {
+    try {
+      console.log("[InterviewAdmin] Finish clicked");
 
-  const handleInterviewAction = () => {
-    // Mülakatı bitir ve rapor sayfasına yönlendir
-    const candidateTranscript = transcriptItems
-      .filter((item) => item.role === "Aday")
-      .filter((item) => !isTranscriptNoise(item.text))
-      .map((item) => item.text)
-      .join("\n");
-    
-    localStorage.setItem("interview_transcript", candidateTranscript);
-    localStorage.setItem("interview_duration", duration.toString());
-    if (interviewId) {
-      localStorage.setItem("active_interview_id", interviewId);
-      updateInterviewStatus(interviewId, "completed");
-    }
-    if (sessionId) {
-      localStorage.setItem("interview_session_id", sessionId);
-    }
+      const candidateTranscript = getCleanCandidateTranscript();
 
-    router.push("/interview-report");
+      localStorage.setItem("interview_transcript", candidateTranscript);
+      localStorage.setItem("interview_duration", duration.toString());
+
+      if (interviewId) {
+        localStorage.setItem("active_interview_id", interviewId);
+        await updateInterviewStatus(interviewId, "completed");
+      }
+
+      if (sessionId) {
+        localStorage.setItem("interview_session_id", sessionId);
+      }
+
+      window.location.href = "/interview-report";
+    } catch (error) {
+      console.error("[InterviewAdmin] Finish error:", error);
+      window.location.href = "/interview-report";
+    }
   };
 
   // Initialize camera and microphone stream only once on mount
@@ -375,12 +403,12 @@ const normalizeTranscriptText = (text: string) => {
   // Sabit transcriptions kaldırıldı - artık LiveTranscriptPanel gerçek zamanlı veri alıyor
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
+    <div className="h-screen bg-slate-50 flex overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push("/dashboard")}
+              onClick={handleGoBack}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -526,7 +554,7 @@ const normalizeTranscriptText = (text: string) => {
           {/* Canlı Transkript - WebSocket üzerinden gerçek zamanlı */}
           <LiveTranscriptPanel 
             sessionId={sessionId} 
-            onTranscriptChange={handleTranscriptChange}
+            onTranscriptChange={setTranscriptItems}
           />
 
           {/* Soru Önerileri (Gemini) - Duygu Analizi yerine */}
