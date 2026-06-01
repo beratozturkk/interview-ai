@@ -125,3 +125,30 @@
     @apply min-h-screen bg-[radial-gradient(circle_at_top_left,#ede9fe,transparent_30%),linear-gradient(135deg,#f8fafc,#f5f3ff)];
   }
 }
+
+
+@layer components {
+  .auth-shell {
+    @apply flex min-h-screen bg-slate-50 text-slate-950;
+  }
+
+  .auth-brand-panel {
+    @apply min-h-screen;
+  }
+
+  .modern-page {
+    @apply min-h-screen bg-slate-50 text-slate-950;
+  }
+
+  .modern-card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/70;
+  }
+
+  .modern-panel {
+    @apply rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-200/80;
+  }
+
+  .modern-button-primary {
+    @apply rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20 hover:opacity-95;
+  }
+}

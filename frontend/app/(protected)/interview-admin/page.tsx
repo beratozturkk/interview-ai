@@ -146,6 +146,8 @@ const normalizeTranscriptText = (text: string) => {
   const isTranscriptNoise = (text: string) => {
     const normalized = normalizeTranscriptText(text);
 
+    if (!normalized || normalized.length < 3) return true;
+
     const noisePhrases = [
       "abone olmayi",
       "abone olun",
@@ -154,28 +156,36 @@ const normalizeTranscriptText = (text: string) => {
       "begen butonuna",
       "yorum yapmayi",
       "yorum yapin",
+      "kanalima abone",
+      "izlediginiz icin tesekkur ederim",
+      "izlediginiz icin tesekkurler",
+      "beni izlediginiz icin tesekkur ederim",
+      "yeni videolarda gorusmek uzere",
+      "hoscakal",
+      "hoscakalin",
       "altyazi",
       "altyazi m k",
+      "altyazilar",
+      "ceviri",
+      "seslendiren",
       "dont forget subscribe",
       "do not forget subscribe",
       "like and subscribe",
       "subscribe to the channel",
       "thanks for watching",
+      "thank you for watching",
       "subtitles by",
       "captions by",
       "amara org",
-      "izlediginiz icin tesekkur ederim",
-      "izlediginiz icin tesekkurler",
-      "beni izlediginiz icin tesekkur ederim",
-      "kanalima abone",
-      "altyazilar",
-      "ceviri",
-      "seslendiren",
-      "thank you for watching",
-  ];
+    ];
 
-  return noisePhrases.some((phrase) => normalized.includes(phrase));
+    return noisePhrases.some((phrase) => normalized.includes(phrase));
   };
+
+  const handleTranscriptChange = (items: TranscriptItem[]) => {
+    setTranscriptItems(items.filter((item) => !isTranscriptNoise(item.text)));
+  };
+
   const handleInterviewAction = () => {
     // Mülakatı bitir ve rapor sayfasına yönlendir
     const candidateTranscript = transcriptItems
@@ -516,7 +526,7 @@ const normalizeTranscriptText = (text: string) => {
           {/* Canlı Transkript - WebSocket üzerinden gerçek zamanlı */}
           <LiveTranscriptPanel 
             sessionId={sessionId} 
-            onTranscriptChange={setTranscriptItems}
+            onTranscriptChange={handleTranscriptChange}
           />
 
           {/* Soru Önerileri (Gemini) - Duygu Analizi yerine */}

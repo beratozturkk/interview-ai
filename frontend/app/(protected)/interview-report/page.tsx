@@ -32,6 +32,66 @@ const formatDuration = (seconds: number): string => {
   return `${mins} dk ${secs} sn`;
 };
 
+const normalizeTranscriptText = (text: string) => {
+  return text
+    .toLowerCase()
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const isTranscriptNoiseText = (text: string) => {
+  const normalized = normalizeTranscriptText(text);
+  const noisePhrases = [
+      "abone olmayi",
+      "abone olun",
+      "abone ol",
+      "begeni butonuna",
+      "begen butonuna",
+      "yorum yapmayi",
+      "yorum yapin",
+      "kanalima abone",
+      "izlediginiz icin tesekkur ederim",
+      "izlediginiz icin tesekkurler",
+      "beni izlediginiz icin tesekkur ederim",
+      "yeni videolarda gorusmek uzere",
+      "hoscakal",
+      "hoscakalin",
+      "altyazi",
+      "altyazi m k",
+      "altyazilar",
+      "ceviri",
+      "seslendiren",
+      "dont forget subscribe",
+      "do not forget subscribe",
+      "like and subscribe",
+      "subscribe to the channel",
+      "thanks for watching",
+      "thank you for watching",
+      "subtitles by",
+      "captions by",
+      "amara org",
+    ];
+
+  return noisePhrases.some((phrase) => normalized.includes(phrase));
+};
+
+const sanitizeTranscriptForReport = (transcript: string) => {
+  return transcript
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !isTranscriptNoiseText(line))
+    .join("\n");
+};
+
+
 function ProgressLine({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
     <div>
@@ -82,7 +142,8 @@ export default function InterviewReportPage() {
 
     const storedInterviewId = localStorage.getItem("active_interview_id");
     const storedSessionId = localStorage.getItem("interview_session_id");
-    const transcript = localStorage.getItem("interview_transcript");
+    const rawTranscript = localStorage.getItem("interview_transcript");
+    const transcript = rawTranscript ? sanitizeTranscriptForReport(rawTranscript) : "";
 
     if (!transcript || transcript.trim().length < 20) {
       setError("Transkript bulunamadı veya çok kısa. Lütfen mülakatı tamamlayın.");

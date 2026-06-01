@@ -65,8 +65,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="auth-shell min-h-screen bg-slate-50">
-      <aside className="auth-brand-panel relative hidden overflow-hidden bg-[#18084a] p-10 text-white lg:flex lg:w-[42%] lg:flex-col lg:justify-between">
+    <div className="flex min-h-screen bg-slate-50">
+      <aside className="auth-brand-panel relative hidden overflow-hidden bg-[#18084a] p-10 text-white lg:flex lg:w-[42%] lg:min-h-screen lg:flex-col lg:justify-between">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(168,85,247,0.38),transparent_30%),linear-gradient(145deg,#120733,#2f0f73)]" />
         <div className="relative z-10 flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-500 shadow-lg shadow-violet-500/30">✦</span>

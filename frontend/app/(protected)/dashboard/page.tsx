@@ -43,6 +43,57 @@ const getReportText = (report: InterviewReportRecord | undefined, key: string): 
   return typeof value === "string" ? value : "";
 };
 
+const normalizeTranscriptText = (text: string) => {
+  return text
+    .toLowerCase()
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const isTranscriptNoiseText = (text: string) => {
+  const normalized = normalizeTranscriptText(text);
+  const noisePhrases = [
+      "abone olmayi",
+      "abone olun",
+      "abone ol",
+      "begeni butonuna",
+      "begen butonuna",
+      "yorum yapmayi",
+      "yorum yapin",
+      "kanalima abone",
+      "izlediginiz icin tesekkur ederim",
+      "izlediginiz icin tesekkurler",
+      "beni izlediginiz icin tesekkur ederim",
+      "yeni videolarda gorusmek uzere",
+      "hoscakal",
+      "hoscakalin",
+      "altyazi",
+      "altyazi m k",
+      "altyazilar",
+      "ceviri",
+      "seslendiren",
+      "dont forget subscribe",
+      "do not forget subscribe",
+      "like and subscribe",
+      "subscribe to the channel",
+      "thanks for watching",
+      "thank you for watching",
+      "subtitles by",
+      "captions by",
+      "amara org",
+    ];
+
+  return noisePhrases.some((phrase) => normalized.includes(phrase));
+};
+
+
 function ReportList({ title, items }: { title: string; items: string[] }) {
   if (!items.length) return null;
 
@@ -280,9 +331,10 @@ export default function DashboardPage() {
 
     setDetailLoadingId(interviewId);
     const segments = await fetchTranscriptSegments(interviewId, 100);
+    const cleanSegments = segments.filter((segment) => !isTranscriptNoiseText(segment.content));
     setTranscriptMap((prev) => ({
       ...prev,
-      [interviewId]: [...segments].reverse(),
+      [interviewId]: [...cleanSegments].reverse(),
     }));
     setDetailLoadingId(null);
   };
@@ -531,7 +583,7 @@ export default function DashboardPage() {
                       </div>
 
                       {isExpanded && (
-                        <div className="border-t border-slate-200 bg-slate-50 p-5 space-y-5">
+                        <div className="border-t border-slate-200 bg-slate-50/80 p-6 space-y-6">
                           {report ? (
                             <div className="grid gap-4 lg:grid-cols-3">
                               <div className="bg-white border border-slate-200 rounded-xl p-4">

@@ -107,7 +107,16 @@ def _looks_like_webm(audio_bytes: bytes) -> bool:
     return len(audio_bytes) >= 4 and audio_bytes[:4] == b"\x1a\x45\xdf\xa3"
 
 
-def _normalize_noise_text(text: str) -> str:
+def _strip_turkish_and_accents(text: str) -> str:
+    """
+    Normalize Turkish/Unicode text for stable phrase matching.
+
+    Important:
+    - "İ".lower() can become "i" + combining dot, so simple replace is not enough.
+    - We remove combining marks after manual Turkish replacements.
+    """
+    import unicodedata
+
     text = _clean_spaces(text).lower()
     replacements = {
         "ı": "i",
@@ -116,53 +125,18 @@ def _normalize_noise_text(text: str) -> str:
         "ş": "s",
         "ö": "o",
         "ç": "c",
-        "İ": "i",
     }
+
     for src, dst in replacements.items():
         text = text.replace(src, dst)
 
-    text = re.sub(r"[^\w\s]", " ", text)
-    return _clean_spaces(text)
-
-
-NOISE_PHRASES = [
-    "abone olmayi",
-    "abone olun",
-    "abone ol",
-    "begeni butonuna",
-    "begen butonuna",
-    "yorum yapmayi",
-    "yorum yapin",
-    "altyazi",
-    "altyazi m k",
-    "dont forget subscribe",
-    "don't forget subscribe",
-    "do not forget subscribe",
-    "like and subscribe",
-    "subscribe to the channel",
-    "thanks for watching",
-    "subtitles by",
-    "captions by",
-    "amara org",
-]
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return text
 
 
 def _normalize_noise_text(text: str) -> str:
-    text = _clean_spaces(text).lower()
-
-    replacements = {
-        "ı": "i",
-        "ğ": "g",
-        "ü": "u",
-        "ş": "s",
-        "ö": "o",
-        "ç": "c",
-        "İ": "i",
-    }
-
-    for src, dst in replacements.items():
-        text = text.replace(src, dst)
-
+    text = _strip_turkish_and_accents(text)
     text = re.sub(r"[^\w\s]", " ", text)
     return _clean_spaces(text)
 
@@ -179,6 +153,10 @@ NOISE_PHRASES = [
     "izlediginiz icin tesekkur ederim",
     "izlediginiz icin tesekkurler",
     "beni izlediginiz icin tesekkur ederim",
+    "yeni videolarda gorusmek uzere",
+    "videolarda gorusmek uzere",
+    "gorusmek uzere hoscakalin",
+    "hoscakalin",
     "kanalima abone",
     "altyazi",
     "altyazi m k",
